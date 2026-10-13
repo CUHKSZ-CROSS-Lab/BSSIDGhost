@@ -6,7 +6,14 @@
 
 运行入口：[`../host/check-objc-syntax.sh`](../host/check-objc-syntax.sh)（已串进 `tests/host/run.sh`）。
 
-> **安全属性**：桩目录**只**被这个检查脚本通过 `-I` 引入；`scripts/build.sh` 的编译命令
+> **两种模式，脚本自动二选一**：[`../host/check-objc-syntax.sh`](../host/check-objc-syntax.sh)
+> 优先用**真 SDK**（`BGGHOST_IOS_SDK`，或 macOS 上的 `xcrun --sdk iphoneos`），
+> 拿不到才退回本目录的桩，并**打印当前模式**。
+> 两者**绝不能混用**：桩的 `-I` 若与真 SDK 同时生效会把真 `Foundation.h` 顶掉，
+> 让「通过」变成假通过。脚本里有一条反向用例专门守这个
+> （拿假 SDK 重跑必须失败）。强制桩模式：`BGGHOST_FORCE_STUB=1`。
+
+> **安全属性**：桩目录**只**被检查脚本通过 `-I` 引入；`scripts/build.sh` 的编译命令
 > 只带 `-I hooks`，**永远不会**把桩带进真实构建 —— 否则会用假 Foundation 掩盖真错误。
 > 新增检查项时请保持这一点。
 

@@ -2,6 +2,17 @@
 
 > 幻影 BSSID · iOS 越狱场景下 Hook 篡改 Wi-Fi 信息接口，伪造目标 App 读取到的 BSSID 返回值
 
+## 快速开始
+
+```sh
+# 换机器 / 换会话后的第一条命令：环境自检 + 全套主机检查（不需要设备）
+bash scripts/bootstrap.sh
+```
+
+- **5 分钟恢复与交接**：[`RESUME.md`](./RESUME.md)
+- **交接备忘（已定决策 / 风险 / 未决事项）**：[`HANDOFF.md`](./HANDOFF.md)
+- **进度真源**：[`docs/STATUS.md`](./docs/STATUS.md)
+
 ## 一句话定义
 
 在 **已越狱的 iOS 设备** 上，通过运行时 Hook 拦截 App 读取 Wi-Fi 信息的系统接口，
@@ -56,7 +67,8 @@
 
 ```
 BSSIDGhost/
-├── README.md                 # 本文件
+├── README.md                 # 本文件（快速开始）
+├── RESUME.md                 # 换机器 / 换会话的 5 分钟恢复指南
 ├── HANDOFF.md                # 交接备忘（定义 / 已定决策 / 风险 / 下一步）
 ├── Makefile                  # theos 打包（rootless / Dopamine）
 ├── control                   # deb 元信息（含 <team> 占位符，未替换则拒绝打包）
@@ -83,6 +95,8 @@ BSSIDGhost/
 │   └── Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist   # 过滤器（构建时按 bundle_ids 重新生成）
 ├── scripts/
 │   ├── lib/common.sh         # 三个脚本共用：授权闸、过滤器生成、--dry-run 执行
+│   ├── bootstrap.sh          # 环境自检 + 跑全套主机检查（换机器第一条命令）
+│   ├── publish.sh            # 推送 main 并开 PR（支持 --dry-run）
 │   ├── build.sh              # 构建：theos 打包 / clang 交叉编译（均先过授权闸）
 │   ├── deploy.sh             # 部署：deb 或 files 方式推送到越狱设备（rootless /var/jb）
 │   └── verify.sh             # 验证：本地闸门状态 + 设备日志判定（只读）
