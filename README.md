@@ -62,21 +62,27 @@ BSSIDGhost/
 ├── docs/
 │   ├── STATUS.md             # 进度真源（任务板 BG-xxx + 轮次记录）
 │   ├── tech-chain.md         # 技术链路拆解与 Hook 点调研
+│   ├── device-setup.md       # 真机准备与抓栈 SOP（B 线）
 │   └── naming.md             # 命名规范
 ├── config/
 │   ├── bssid_map.json        # BSSID 映射表（真实值 → 伪造值）
 │   └── targets.json          # 目标 App 作用域与测试授权记录
 ├── hooks/
-│   ├── Hooks.h               # Hook 入口声明
-│   ├── Hooks.m               # 统一注册与日志
+│   ├── Hooks.h               # Hook 入口声明 + 日志声明
+│   ├── Hooks.m               # 统一注册、授权校验与日志
+│   ├── BGGhostRules.h/.c     # 映射逻辑（纯 C，可在主机上单测）
+│   ├── BGGhostMap.h/.m       # 配置读取 + NSString 映射胶水
 │   ├── BGGhostCoreWLAN.h/.m  # CoreWLAN / CWFInterface Hook（主通道）
 │   └── BGGhostHotspot.h/.m   # NEHotspotNetwork / CNCopy* Hook（补充通道）
 ├── scripts/
 │   ├── build.sh              # 编译 dylib / deb
-│   ├── deploy.sh             # 部署与注入到越狱设备
+│   ├── deploy.sh             # 部署与注入到越狱设备（rootless /var/jb）
 │   └── verify.sh             # 验证 Hook 是否生效
 └── tests/
-    └── README.md             # 测试矩阵与校验方法
+    ├── README.md             # 测试矩阵与校验方法
+    ├── host/                 # L1：主机侧单测（run.sh，不依赖真机）
+    ├── frida/                # L2：真机只读抓栈脚本与用法
+    └── evidence/             # 证据命名、摘要模板与纪律
 ```
 
 ## 命名规范

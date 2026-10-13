@@ -54,6 +54,18 @@
 **R1 已完成（2026-10-13）**：建立 git 仓库（`main` 分支）+ [`.gitignore`](./.gitignore) +
 [`docs/STATUS.md`](./docs/STATUS.md) 进度真源，并确认测试机越狱形态与外部能力清单。
 
+**R2 已完成（2026-10-13，B/C 并行）**：
+
+- **C 线（不依赖真机，已实测）**：[`hooks/BGGhostRules.h`](./hooks/BGGhostRules.h)/[`.c`](./hooks/BGGhostRules.c)
+  是 BSSID 映射的**纯 C 核心**（归一化 / 格式跟随 / 规则匹配 / nil 透传），
+  [`hooks/BGGhostMap.m`](./hooks/BGGhostMap.m) 负责读 `bssid_map.json` 并映射 `NSString`；
+  [`tests/host/run.sh`](./tests/host/run.sh) **56 条断言全部通过**（`-Wall -Wextra -Werror`）。
+- **B 线（工具就绪，执行被阻塞）**：[`tests/frida/capture-wifi-api.js`](./tests/frida/capture-wifi-api.js)
+  只读抓栈（ObjC 通道 + `CNCopyCurrentNetworkInfo` + **nehelper XPC 请求/应答** + 接口 MAC 对照）、
+  [`docs/device-setup.md`](./docs/device-setup.md) 真机 SOP、[`tests/evidence/README.md`](./tests/evidence/README.md) 取证模板。
+  脚本仅经 `node --check`，**未在设备上实跑**。
+- **顺带修复**：`Hooks.h` 缺 `BGGhostLog` 声明（C99+ 下隐式声明会让真机编译直接失败）。
+
 ## 4. 未决事项（需要用户输入）
 
 - ~~目标测试机越狱类型与 iOS 版本未确认~~ → **已确认（R1）**：Dopamine / **rootless**，
@@ -63,6 +75,8 @@
   R1 决策：**先按未授权处理**，所有真机任务保持 `blocked`，脚本与 Hook 的安全闸保持关闭。
   **助手不代填授权字段**，只在用户给出具体值后写入。
 - **设备未就位** —— `idevice_id -l` 返回 `Unable to retrieve device list!`。
+- **主机缺少 frida（R2 新增阻塞）** —— R1 决定「都先不装」，所以即使授权与设备就位，
+  BG-011 仍缺执行工具。安装路径见 [`docs/device-setup.md`](./docs/device-setup.md) 第 2 节。
 - **编译链落点未定（BG-032）** —— 本机无 theos / iPhoneOS SDK / `ldid` / `dpkg-deb`，
   `clang 22` 有 arm64 目标但无 SDK，无法交叉编译。三选一：macOS + theos /
   本机装 theos + iOS SDK + ldid / 直接在越狱机上用 Procursus 工具链编。
@@ -94,26 +108,23 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R2：B、C 并行）
+## 7. 建议的下一步（R3）
 
-R1 已决策「先 A，然后 B、C 并行」。A 的最小集已完成，R2 按下面两条线同时推进
-（完整任务板见 [`docs/STATUS.md`](./docs/STATUS.md)）：
+R1 的「A」与 R2 的「B、C」均已完成，真机线（BG-011/012/013/030/031/040）被
+**授权闸 + 设备 + 主机 frida** 三重阻塞。因此 R3 建议只做**主机侧可交付**的项：
 
-**B 线 —— 真机抓链路方案（无设备也能先交付脚本与清单，BG-011 前置）**
+1. **[BG-032] 编译链落点** —— 需要你先三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
+   越狱机上用 Procursus 工具链。这条不定，BG-031（三个脚本的真实实现）无法动。
+2. **[BG-022] 授权闸实现** —— 读 `config/targets.json`，校验 6 个授权字段非 `fill_me`、
+   `scope.bundle_ids` 非空，拒绝时给出明确原因（对应测试矩阵 T9）。
+3. **[BG-022] 日志落盘** —— 按 `bssid_map.json` 的 `log.path` 写文件，带大小上限与轮转。
+4. **扩展 L1 覆盖** —— 目前只有映射核心（纯 C）有主机单测；「JSON → BGRuleSet」的解析路径
+   在 `BGGhostMap.m` 里依赖 Foundation，Linux 上无法编译。建议把 JSON 读取抽成可注入的
+   纯 C 接口（`BGGhostRuleSetAdd` 已是现成注入点），这样配置解析也能进 L1。
+5. **范围收窄预判** —— 若 BG-011 结论是「目标 App 只走 nehelper XPC」，则 Hook 点要从
+   ObjC 方法改为 XPC 边界，`BGGhostCoreWLAN.m` / `BGGhostHotspot.m` 需要重构。
 
-1. `tests/frida/capture-wifi-api.js`：一次性 Hook `CoreWLAN` / `NEHotspotNetwork` /
-   `CNCopyCurrentNetworkInfo` / `com.apple.nehelper` XPC 应答，打印调用栈与返回形态。
-2. 设备准备 SOP：越狱确认、frida-server 与主机版本严格匹配、rootless 安装路径、
-   `iproxy`/SSH 通道、验证命令。
-3. `tests/evidence/` 证据记录模板（设备型号 / iOS 版本 / 越狱类型 / App 版本 / 真实 BSSID / 时间）。
-
-**C 线 —— 主机侧可验证实现（完全不依赖真机）**
-
-4. 实现 `BGGhostMapBSSID()`：规则匹配、格式一致性（大小写 / 分隔符）、
-   **nil 透传**、无规则时返回原值。
-5. 主机侧单测：把映射逻辑抽成不依赖 ObjC 运行时的纯逻辑，覆盖 T5/T7 边界。
-
-> 仍需用户补齐才能解锁真机线：`config/targets.json` 授权字段、设备就位、编译链落点（BG-032）。
+> 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**。
 
 ## 8. R1 调研结论：skill / plugin 机制（本会话实测）
 

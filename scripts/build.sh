@@ -40,11 +40,13 @@ fi
 mkdir -p "${OUT}"
 echo "==> 编译 ${DYLIB}"
 
-# TODO: 接入 theos Makefile 或 clang 交叉编译
+# TODO(BG-031/BG-032): 接入 theos Makefile 或 clang 交叉编译
+#   注意 hooks/ 下同时有 .m（ObjC 胶水/Hook 点）与 .c（纯 C 映射核心，见 BGGhostRules.c），
+#   两者都要编译进去；映射核心不依赖 Foundation，主机侧单测见 tests/host/run.sh
 #   clang -dynamiclib -arch arm64 -arch arm64e \
-#         -I"${THEOS}/include" \
+#         -I"${THEOS}/include" -I"${ROOT}/hooks" \
 #         -framework Foundation -framework CoreWLAN \
-#         "${ROOT}"/hooks/*.m -o "${OUT}/${DYLIB}"
+#         "${ROOT}"/hooks/*.m "${ROOT}"/hooks/*.c -o "${OUT}/${DYLIB}"
 
-echo "!! 编译步骤待实现。" >&2
+echo "!! 编译步骤待实现（BG-032 需先决定编译链落点）。" >&2
 exit 1
