@@ -103,6 +103,15 @@
 - **仍查不出**：方法在真实 iOS SDK 上是否存在/弃用/可用性、链接期问题
   （`-framework`/符号/`install_name`/切片）、任何运行期行为。**仍需真 SDK 编译。**
 
+**R6 已完成（2026-10-13，闸门端到端 + 决策材料）**：
+
+- **授权闸模拟器**：[`tests/host/gate-sim.sh`](./tests/host/gate-sim.sh) + [`gate_sim.c`](./tests/host/gate_sim.c)
+  把**真实配置**喂给**真实判定代码**，直接回答「当前配置下某个 BundleID 上 Hook 会启用还是拒绝」。
+  当前仓库输出：拒绝，责任字段 `authorization.target_app_owner`。自检 6/6（5 组反向）。
+- **编译链决策材料**：[`docs/build-chain-options.md`](./docs/build-chain-options.md)，
+  含本轮实测事实 —— 本机**已有 Mach-O 链接器 `ld64.lld`**、链接只差 `-lSystem`（即 iOS SDK）、
+  `theos` 与 `theos/sdks` 仓库可达、`dpkg` 在官方源、`ldid` 仅 AUR。**B 方案比原先估计的近得多。**
+
 **⚠️ 需要你确认的命名细节**：theos 产物名固定为 `BSSIDGhost.dylib`（不带 `lib` 前缀），
 与 HANDOFF §2 记录的 `libbssidghost.dylib` 并存为「两条路线两个名字」。
 选项与影响见 [`docs/naming.md`](./docs/naming.md)，**未擅自改动既有决策**。
@@ -151,21 +160,24 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R6）
+## 7. 建议的下一步（R7）
 
-R2 的 B/C 线、R3 的策略层、R4 的编译/部署管道、R5 的 ObjC 编译期检查均已完成。
-**剩下的关键路径只有一条：真实工具链**。真机线仍被授权闸 + 设备 + 主机 frida 阻塞。
+R2–R6 已完成：B/C 线、策略层、编译部署管道、ObjC 编译期检查、闸门端到端模拟。
+**主机侧能查的都查完了**，剩下的关键路径只有真实工具链。
 
-1. **[BG-032] 编译链落点（必须你定）** —— 三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
-   越狱机上用 Procursus 工具链。**这是唯一卡住整个项目的事项。**
-2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。届时会暴露：缺 `-framework`、
-   私有 API 可用性（CoreWLAN 是否需 `dlopen`）、`install_name`、arm64e 切片等问题。
-3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约 + 语法检查，解析行为靠人工复核。
-4. **`--respring` / 日志抓取的真机验证** —— 需要设备。
-5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
+1. **[BG-032] 编译链落点（必须你定）** —— 三选一，决策材料见
+   [`docs/build-chain-options.md`](./docs/build-chain-options.md)：
+   - **A** macOS + theos（风险最低，需一台 Mac）
+   - **B** 本机装 theos + iOS SDK + `ldid`（**本机已验证只差 SDK 与 ldid**，需一次安装许可）
+   - **C** 越狱机上用 Procursus 工具链（无需安装，但迭代慢）
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。会暴露：缺 `-framework`、
+   CoreWLAN 等私有框架是否必须 `dlopen`/`NSClassFromString`、`install_name`、arm64e 切片。
+3. **命名决策** —— theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`，见
+   [`docs/naming.md`](./docs/naming.md#项目标识)。
+4. **真机线** —— 仍需授权字段、设备、frida 安装许可三者齐备。
 
-> 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**；
-> 另有一项命名细节待确认（theos 产物名，见 [`docs/naming.md`](./docs/naming.md)）。
+> 如果 1 迟迟不定，R7 我只能做边角工作（细化 `verify.sh` 设备侧检查、
+> 或给 `tech-chain.md` 补 nehelper 的可验证实验设计）。**真正的进度在你这一票。**
 
 ## 8. R1 调研结论：skill / plugin 机制（本会话实测）
 

@@ -11,6 +11,7 @@
 | [`host/check-config-contract.sh`](host/check-config-contract.sh) | **L0**（主机） | 校验 `config/*.json` 与 `hooks/*.c` 的键名/类型/容量契约，以及过滤器 plist 与 `bundle_ids` 是否一致 |
 | [`host/check-scripts.sh`](host/check-scripts.sh) | **L0**（主机） | 用 `--dry-run` 正向验证三个脚本的命令拼装；反向验证授权闸与 `<team>` 占位符会拦住执行 |
 | [`host/check-objc-syntax.sh`](host/check-objc-syntax.sh) | **L0**（主机） | 用 [`objc-stub/`](objc-stub/) 的最小 Foundation 桩，对 `hooks/*.m` 做 `clang -fsyntax-only`（含 ARC 与格式串检查）+ 头文件自包含检查 |
+| [`host/gate-sim.sh`](host/gate-sim.sh) | **L1**（主机） | 授权闸模拟器：把**真实配置**喂给**真实判定代码**（`BGGhostAuth.c`），回答「某个 BundleID 上 Hook 会启用还是拒绝」；`--self-test` 含 5 组反向用例 |
 | [`host/`](host/) 的单测 | **L1**（主机，不依赖真机） | `run.sh` 编译并运行 `BGGhostRules.c` 与 `BGGhostAuth.c` 的纯 C 单测 |
 | [`frida/`](frida/) | **L2**（真机只读抓栈） | `capture-wifi-api.js` + 用法，落实 BG-011 |
 | [`evidence/`](evidence/) | 证据 | 原始输出与结论摘要的命名/模板/纪律 |
@@ -23,6 +24,9 @@ tests/host/run.sh
 tests/host/check-config-contract.sh
 tests/host/check-scripts.sh
 tests/host/check-objc-syntax.sh
+tests/host/gate-sim.sh                 # 对配置里的第一个 BundleID 判定
+tests/host/gate-sim.sh --bundle com.x  # 指定 BundleID
+tests/host/gate-sim.sh --self-test     # 6 组断言
 ```
 
 ## 用例矩阵
@@ -36,12 +40,12 @@ tests/host/check-objc-syntax.sh
 | T5 | 格式一致 | 对比伪造值与真实值格式 | 大小写、分隔符一致 | ✅ L1（`[格式一致性]` 段） |
 | T6 | 多次调用 | 反复触发读取（前台/后台切换） | 每次返回均为伪造值 | 待测（需真机） |
 | T7 | 无规则透传 | 切到未配置的网络 | 返回真实 BSSID，行为不变 | ✅ L1（`[T7 透传]` 段） |
-| T8 | 作用域 | 在非目标 App 中检查 | Hook 不生效 | ✅ 判定逻辑由 L1 覆盖，端到端待真机 |
-| T9 | 授权闸 | 清空 targets.json 授权字段 | Hook 拒绝启用并记录原因 | ✅ 判定逻辑由 L1 覆盖，端到端待真机 |
+| T8 | 作用域 | 在非目标 App 中检查 | Hook 不生效 | ✅ 判定逻辑由 L1 覆盖（含 gate-sim），端到端待真机 |
+| T9 | 授权闸 | 清空 targets.json 授权字段 | Hook 拒绝启用并记录原因 | ✅ 判定逻辑由 L1 覆盖（含 gate-sim 真实配置端到端），端到端待真机 |
 | T10 | 交叉校验 | 观察 App 是否有异常上报 | 无风控拦截 / 无异常提示 | 待测（需真机） |
 
-> T5 / T7 / T8 / T9 的**判定逻辑**已在 L1 由 92 条单测覆盖（含 nil 语义、畸形输入、
-> 全局开关、规则优先级、表容量、占位符与空白值绕过、约束开关、作用域匹配）。
+> T5 / T7 / T8 / T9 的**判定逻辑**已在 L1 由 98 条单测覆盖（56 条映射 + 36 条授权闸 +
+> 6 条 gate-sim 真实配置端到端），另有 40 条 L0 检查（契约 / 脚本 / ObjC 语法）。
 > 真机侧仍需按上表复核「端到端」行为（尤其是日志落盘与真实 nil 返回值），两者不可互相替代。
 
 ## 关键对照组

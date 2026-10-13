@@ -12,7 +12,8 @@
 | R3 | 授权闸与日志落盘（BG-022）+ L0 配置契约检查 | ✅ 完成 |
 | R4 | theos 打包骨架 + 三个脚本真实实现（BG-031/033），均带 `--dry-run` 且已自检 | ✅ 完成 |
 | R5 | ObjC 层首次获得编译器检查（BG-035：最小 Foundation 桩 + `-fsyntax-only`） | ✅ 完成 |
-| R6 | 待定：**BG-032 编译链落点仍需你决策**；之后才是真 SDK 编译与链接验证 | ⏳ 计划中 |
+| R6 | 授权闸模拟器（BG-036）+ 编译链决策说明（BG-032 的决策材料） | ✅ 完成 |
+| R7 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧仅剩边角项 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -34,6 +35,8 @@
 | BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../Makefile)、[`control`](../control)、[`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
 | BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)（17/17 通过） |
 | BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`tests/objc-stub/`](../tests/objc-stub/)、[`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
+| BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh)、[`tests/host/gate_sim.c`](../tests/host/gate_sim.c)（自检 6/6） |
+| BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
 | BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
 
 ## 已确认环境事实（不要重复探测）
@@ -66,25 +69,79 @@
    真机任务（BG-011/012/013/030/031/040）全部 blocked。**助手不代填授权字段**，只在用户提供具体值后写入。
 2. **设备就位** —— 当前无 iOS 设备连接，`idevice_id -l` 失败。
 3. **编译链落点（BG-032）** —— 三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
-   直接在越狱机上用 Procursus 工具链编译。**尚未决策**。
+   直接在越狱机上用 Procursus 工具链编译。**尚未决策。**
+   → **决策材料已备好**：[`docs/build-chain-options.md`](build-chain-options.md)
+   （含已实测事实：本机 `ld64.lld` 在位、theos/theos 与 theos/sdks 仓库可达、
+   `dpkg` 在官方源、`ldid` 仅 AUR、host libc 头不能替代 SDK）。
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R6）候选
+## 下一轮（R7）候选
 
-R5 让 ObjC 层第一次过了编译器（语法层面）。剩下的**只有真 SDK 才能做的**部分，以及一项决策：
+主机侧的「能查的都查了」：契约、脚本、ObjC 语法、判定逻辑、真实配置端到端判定。
+剩下的**只有真 SDK 才能做**，以及一项待你确认的命名。按价值排序：
 
-1. **[BG-032] 编译链落点决策（必须你定）** —— 三选一。这是**唯一卡住整个项目**的事项：
-   没有它就没有链接验证、没有产物、没有真机。
-2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。到那时才会暴露：缺 `-framework`、
-   私有 API 可用性、`install_name`、arm64e 切片等问题。
-3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约与语法检查，解析行为仍靠人工复核。
+1. **[BG-032] 编译链落点（必须你定）** —— 决策材料见
+   [`docs/build-chain-options.md`](build-chain-options.md)。**唯一卡住整个项目的事项。**
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。届时暴露：缺 `-framework`、
+   私有 API 可用性（CoreWLAN 是否需 `dlopen`）、`install_name`、arm64e 切片。
+3. **命名决策**（theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`）—— 见
+   [`naming.md`](naming.md#项目标识)。
 4. **`--respring` / 日志抓取的真机验证** —— 需要设备。
 5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
+
+> 如果 1 迟迟不定，R7 我只能做边角工作（例如把 `verify.sh` 的设备侧检查再细化、
+> 或给 `docs/tech-chain.md` 补 nehelper 的可验证实验设计）。**真正的进度在你这一票。**
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R6（2026-10-13）授权闸模拟器 + 编译链决策材料
+
+**一、授权闸模拟器（BG-036）**
+
+把**真实配置**喂给**真实判定代码**，在不接触设备的情况下回答
+「以当前 `config/targets.json` 为准，Hook 会对某个 BundleID 启用还是拒绝」：
+
+| 文件 | 内容 |
+|---|---|
+| [`tests/host/gate_sim.c`](../tests/host/gate_sim.c) | 从 stdin 读 `KIND<TAB>KEY<TAB>VALUE`，调用 `BGGhostAuth.c` 的真实接口，输出判定 + 原因 + 责任字段 |
+| [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh) | 用 jq 从 JSON 抽取输入；`--bundle` 指定进程；`--self-test` 跑 6 组断言 |
+
+```
+$ tests/host/gate-sim.sh
+输入：授权字段 6/6，scope.mode=allowlist，bundle=1，constraints=有
+目标进程：com.ss.iphone.ugc.Lark
+判定：拒绝 —— Hook 不会启用
+原因：授权字段仍为占位符 fill_me
+责任字段：authorization.target_app_owner
+```
+
+自检 6/6（**5 组反向**）：仓库当前 `fill_me` → 拒绝并指向 `target_app_owner`；
+仅 `test_ap` 未填 → 指向 `authorization.test_ap`；`constraints.only_test_network=false`
+→ 指向 `constraints`；`scope.mode=whitelist` → 指向 `scope.mode`；
+BundleID 不在作用域 → 指向 `scope.bundle_ids`；授权填齐 + 在作用域 → 通过。
+
+> 边界：JSON → 结构体这一步由 jq 完成（不是 `NSJSONSerialization`），
+> 所以它覆盖「判定代码 + 配置取值」的端到端，**不覆盖 `BGGhostConfig.m` 的解析实现**。
+
+**二、编译链决策材料（BG-037）**
+
+[`docs/build-chain-options.md`](build-chain-options.md) 把三个选项的前置条件、成本、
+能验证到什么都摊开，并附**本轮实测**的环境事实：
+
+| 实测 | 结果 |
+|---|---|
+| clang 接受 `arm64-apple-ios15.0` / `arm64e-apple-ios15.0` | ✅ |
+| **Mach-O 链接器已在位** | `/usr/bin/ld64.lld`（LLD 22.1.6），`-fuse-ld=lld` 对 Darwin 目标自动选它 |
+| 链接只差 SDK | 报错**只剩** `ld64.lld: error: library not found for -lSystem` |
+| host libc 头能否替代 SDK | ❌ 直接 `-c` 编 arm64 Mach-O：3 个只用 Foundation 桩的文件成功，含 `<stdio.h>`/`<stdlib.h>` 的 2 个失败 |
+| theos / theos-sdks 仓库 | ✅ `git ls-remote` 均可达 |
+| 打包工具 | `dpkg` 在官方 `extra`；`ldid` **仅 AUR**；`fakeroot` 已装 |
+| 磁盘 | `/home` 可用 80 GB |
+
+结论：**B 方案（Linux + SDK）比原先估计的更近 —— 只差 iOS SDK 与 `ldid`**。
 
 ### R5（2026-10-13）ObjC 层首次获得编译器检查
 
