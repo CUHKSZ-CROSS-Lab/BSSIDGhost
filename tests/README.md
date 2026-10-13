@@ -18,8 +18,9 @@
 | [`evidence/`](evidence/) | 证据 | 原始输出与结论摘要的命名/模板/纪律 |
 
 ```sh
-# L0 + L1：本机即可跑（推荐入口）
-tests/host/run.sh
+# L0 + L1：本机即可跑（推荐入口；也是换机器后的第一条命令）
+bash scripts/bootstrap.sh      # 环境自检 + 全套检查 + 下一步提示
+tests/host/run.sh              # 只跑检查，不打印环境报告
 
 # 单项运行
 tests/host/check-config-contract.sh
@@ -48,7 +49,8 @@ tests/host/map-sim.sh --ssid Office_WiFi --bssid AA:BB:CC:DD:EE:FF
 
 > T5 / T7 / T8 / T9 的**判定逻辑**已在 L1 由 106 条断言覆盖（56 条映射单测 + 36 条授权闸单测
 > + 6 条 gate-sim + 8 条 map-sim，后两者是「真实配置取值 + 真实代码」的端到端），
-> 另有 34 条 L0 检查（契约 / 脚本 / ObjC 语法）。真机侧仍需按上表复核「端到端」行为
+> 另有 L0 检查（脚本自检 17 + ObjC 语法与头文件自包含 18，另加配置契约检查的逐项校验）。
+> 真机侧仍需按上表复核「端到端」行为
 > （尤其是日志落盘与真实 nil 返回值），两者不可互相替代。
 
 ## 关键对照组

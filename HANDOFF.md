@@ -2,6 +2,17 @@
 
 > 供新会话快速衔接项目上下文。**开新对话时先让助手读本文件**。
 
+## 0. 换机器 / 换会话：先跑这一条
+
+```sh
+bash scripts/bootstrap.sh
+```
+
+它会做：环境自检（必需 / 可选分开列，附本平台安装命令）→ 跑全套主机检查（6 个目标、141 项断言，不需要设备）
+→ 打印「读取顺序 + 当前阻塞项 + 真机线缺什么」。
+完整恢复指南见 [`RESUME.md`](./RESUME.md)（含**换到 macOS 后的专门说明**）。
+同步到远端：`bash scripts/publish.sh --dry-run` 看计划，去掉 `--dry-run` 执行。
+
 ## 1. 项目定义（已确认）
 
 **BSSIDGhost**（中文：幻影 BSSID）
@@ -233,12 +244,14 @@ nehelper 可证伪实验设计。**主机侧基本做完了，剩下能推进项
 
 ## 9. 协作约定（R1 最小集，跑一轮后再补文档）
 
+0. **换机器/换会话**：先 `bash scripts/bootstrap.sh`，再按 [`RESUME.md`](./RESUME.md) 的读取顺序上手。
 1. **进度真源**：[`docs/STATUS.md`](./docs/STATUS.md) 的任务板（`BG-xxx`）+ 轮次记录。
 2. **每轮节奏**：开头对齐本轮目标与 DoD → 中间用 todo 跟踪 → 收尾更新 STATUS 与 HANDOFF 并提交。
 3. **提交规范**：`feat|fix|docs|test|chore(bg-xxx): 摘要`。
-4. **验证阶梯**：L0 静态（`bash -n`、JSON 校验、占位扫描）→ L1 主机可跑单测 →
+4. **验证阶梯**：L0 静态（`bash -n`、JSON 校验、占位扫描）→ L1 主机可跑单测与模拟器 →
    L2 真机抓栈（证据落 `tests/evidence/`）→ L3 端到端 T1–T10。
 5. **安全闸不放宽**：`fill_me` 未填齐即拒绝 build/deploy/Hook；助手不代填授权字段；
    真机破坏性操作逐次确认；仅自有/已授权 App。
 6. **分工**：用户提供真机事实与执行（或授权助手在有设备时执行）；助手负责调研、代码、脚本、文档
    及一切主机侧可验证的部分。
+7. **同步节奏**：`bash scripts/publish.sh`（先 `--dry-run`）；脚本从不 force push、不改写历史。

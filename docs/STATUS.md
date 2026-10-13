@@ -14,7 +14,8 @@
 | R5 | ObjC 层首次获得编译器检查（BG-035：最小 Foundation 桩 + `-fsyntax-only`） | ✅ 完成 |
 | R6 | 授权闸模拟器（BG-036）+ 编译链决策说明（BG-032 的决策材料） | ✅ 完成 |
 | R7 | 映射模拟器（BG-038）+ nehelper 可证伪实验设计（BG-039） | ✅ 完成 |
-| R8 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧已基本做完 | ⏳ 计划中 |
+| R8 | 交接方案（BG-040：RESUME/bootstrap/publish）+ 修复换 Mac 后的 ObjC 假通过风险 | ✅ 完成 |
+| R9 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧已做完 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -40,6 +41,8 @@
 | BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
 | BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`tests/host/map-sim.sh`](../tests/host/map-sim.sh)、[`tests/host/map_sim.c`](../tests/host/map_sim.c)（自检 8/8） |
 | BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/tech-chain.md`](tech-chain.md) §2.2、[`tests/frida/README.md`](../tests/frida/README.md) |
+| BG-040 | 交接方案：环境自检 / 5 分钟恢复指南 / 推送与 PR 脚本 | **done** | — | [`RESUME.md`](../RESUME.md)、[`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/publish.sh`](../scripts/publish.sh) |
+| BG-041 | 修复「换到 macOS 后 ObjC 检查假通过」风险（桩与真 SDK 二选一 + 反向用例） | **done** | — | [`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（18/18，含假 SDK 反向用例） |
 | BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
 
 ## 已确认环境事实（不要重复探测）
@@ -97,6 +100,41 @@ R7 又把 nehelper 那条外部结论变成了可执行、可证伪的实验。
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R8（2026-10-13）交接方案 + 修复换 Mac 后的假通过风险
+
+**背景**：用户要换机器（**可能是 Mac，未定**），需要一套能快速 resume 的交接方案，
+并把当前进度同步到远端 `CUHKSZ-CROSS-Lab/BSSIDGhost`。
+
+**一、交接方案（BG-040）**
+
+| 文件 | 作用 |
+|---|---|
+| [`RESUME.md`](../RESUME.md) | 5 分钟恢复三步；新机器装什么（Linux/macOS 对照）；**换 Mac 的专门说明**；进度与缺口指针；换 AI 会话的开场模板；离线 bundle 兜底；命令速查 |
+| [`scripts/bootstrap.sh`](../scripts/bootstrap.sh) | 环境自检（必需/可选分级 + 按平台给安装命令 + SDK/THEOS 探测）+ 跑全套主机检查 + 打印「读取顺序 / 当前阻塞 / 真机缺什么」；退出码可判定 |
+| [`scripts/publish.sh`](../scripts/publish.sh) | 推送 `main` + 推送来源分支 + `gh pr create`；`--dry-run` 可先看命令与 PR 正文；**从不 force push**；缺凭据时明确报错并打印 compare 链接；非 TTY 下禁止 git 弹窗 |
+| [`HANDOFF.md`](../HANDOFF.md) §0 / §9 | 新增「换机器先跑这一条」与发布节奏约定 |
+| [`README.md`](../README.md) | 新增「快速开始」 |
+
+**二、修复一个会在 Mac 上产生假通过的缺陷（BG-041）**
+
+发现的问题：[`check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh) 原来无条件带
+`-I tests/objc-stub`。在装有 iOS SDK 的 Mac 上，这个 `-I` 会**把真 `Foundation.h` 顶掉**，
+于是「检查通过」其实是拿声明桩跑出来的——**假通过**，而且在换 Mac 的场景下最容易发生。
+
+修法：脚本改为二选一，并打印所用模式 ——
+
+| 模式 | 触发 | 强度 |
+|---|---|---|
+| **真 SDK** | 设置了 `BGGHOST_IOS_SDK`，或 `xcrun --sdk iphoneos --show-sdk-path` 可用 | 强：方法存在性 / 弃用 / 可用性标注都参与 |
+| 声明桩 | 两者都拿不到（本机 Linux 即此情形） | 弱：仅语法/类型/ARC/格式串 |
+
+并加了一条**反向用例**守住它：构造一个「缺方法声明」的假 SDK 重跑脚本，
+**必须失败**——如果通过了，就说明桩把真头文件顶掉了。当前 18/18（原 17 + 本项）。
+
+同时修掉 `bootstrap.sh` 自身一个 bug：套件结果是 `bash run.sh | tail` 取的 `$?`，
+那是 `tail` 的退出码，**失败会被误报为通过**；改为先收输出再取退出码，
+并用「注入断言失败的副本」验证过：故障副本报失败且退出码 1，正常仓库退出码 0。
 
 ### R7（2026-10-13）映射模拟器 + nehelper 可证伪实验设计
 
