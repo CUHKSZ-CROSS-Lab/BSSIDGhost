@@ -22,7 +22,9 @@
     }
   ],
   "log": {
+    "_comment": "enabled=false 时只输出 NSLog；max_bytes 超过后把当前文件轮转为 <path>.1（保留一份备份）",
     "enabled": true,
-    "path": "/var/mobile/Library/Logs/BSSIDGhost/ghost.log"
+    "path": "/var/mobile/Library/Logs/BSSIDGhost/ghost.log",
+    "max_bytes": 1048576
   }
 }

@@ -68,10 +68,12 @@ BSSIDGhost/
 │   ├── bssid_map.json        # BSSID 映射表（真实值 → 伪造值）
 │   └── targets.json          # 目标 App 作用域与测试授权记录
 ├── hooks/
-│   ├── Hooks.h               # Hook 入口声明 + 日志声明
-│   ├── Hooks.m               # 统一注册、授权校验与日志
-│   ├── BGGhostRules.h/.c     # 映射逻辑（纯 C，可在主机上单测）
-│   ├── BGGhostMap.h/.m       # 配置读取 + NSString 映射胶水
+│   ├── Hooks.h               # Hook 入口声明 + 日志与授权判定声明
+│   ├── Hooks.m               # 统一注册、授权闸、日志落盘与轮转
+│   ├── BGGhostRules.h/.c     # BSSID 映射逻辑（纯 C，可在主机上单测）
+│   ├── BGGhostAuth.h/.c      # 授权闸与作用域判定（纯 C，可在主机上单测）
+│   ├── BGGhostConfig.h/.m    # 读 targets.json / bssid_map.json 的 log 段
+│   ├── BGGhostMap.h/.m       # NSString 映射胶水
 │   ├── BGGhostCoreWLAN.h/.m  # CoreWLAN / CWFInterface Hook（主通道）
 │   └── BGGhostHotspot.h/.m   # NEHotspotNetwork / CNCopy* Hook（补充通道）
 ├── scripts/
@@ -80,7 +82,7 @@ BSSIDGhost/
 │   └── verify.sh             # 验证 Hook 是否生效
 └── tests/
     ├── README.md             # 测试矩阵与校验方法
-    ├── host/                 # L1：主机侧单测（run.sh，不依赖真机）
+    ├── host/                 # L0 配置契约检查 + L1 纯 C 单测（不依赖真机）
     ├── frida/                # L2：真机只读抓栈脚本与用法
     └── evidence/             # 证据命名、摘要模板与纪律
 ```

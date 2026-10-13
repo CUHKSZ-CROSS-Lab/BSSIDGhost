@@ -66,6 +66,17 @@
   脚本仅经 `node --check`，**未在设备上实跑**。
 - **顺带修复**：`Hooks.h` 缺 `BGGhostLog` 声明（C99+ 下隐式声明会让真机编译直接失败）。
 
+**R3 已完成（2026-10-13，主机侧策略层）**：
+
+- **授权闸**：[`hooks/BGGhostAuth.h`](./hooks/BGGhostAuth.h)/[`.c`](./hooks/BGGhostAuth.c) 是判定的纯 C 核心
+  （授权字段缺值/占位符/空白绕过、constraints 三项、scope.mode、bundle 匹配顺序短路）；
+  [`hooks/BGGhostConfig.m`](./hooks/BGGhostConfig.m) 读 `targets.json`，**读不到即按未授权处理**。
+- **日志落盘**：[`hooks/Hooks.m`](./hooks/Hooks.m) 按 `bssid_map.json` 的 `log` 段追加写文件，
+  超过 `max_bytes`（默认 1 MiB）轮转为 `<path>.1`。
+- **L0 契约检查**：[`tests/host/check-config-contract.sh`](./tests/host/check-config-contract.sh)
+  交叉校验 JSON 键名 ↔ C 侧字段表、容量上限、BSSID 格式、日志设置，并用 3 组注入故障验证过它不是空转。
+- **验证**：`tests/host/run.sh` → L0 通过 + `BGGhostRules` 56/56 + `BGGhostAuth` 36/36。
+
 ## 4. 未决事项（需要用户输入）
 
 - ~~目标测试机越狱类型与 iOS 版本未确认~~ → **已确认（R1）**：Dopamine / **rootless**，
@@ -74,6 +85,8 @@
 - **目标 App 授权状态未确认（阻塞中）** —— `config/targets.json` 的 `authorization` 字段全为 `fill_me`。
   R1 决策：**先按未授权处理**，所有真机任务保持 `blocked`，脚本与 Hook 的安全闸保持关闭。
   **助手不代填授权字段**，只在用户给出具体值后写入。
+  R3 已把闸门实现落地（[`hooks/BGGhostAuth.c`](./hooks/BGGhostAuth.c)，判定有 36 条主机单测），
+  真机侧现在会**拒绝启用并写明责任字段**。
 - **设备未就位** —— `idevice_id -l` 返回 `Unable to retrieve device list!`。
 - **主机缺少 frida（R2 新增阻塞）** —— R1 决定「都先不装」，所以即使授权与设备就位，
   BG-011 仍缺执行工具。安装路径见 [`docs/device-setup.md`](./docs/device-setup.md) 第 2 节。
@@ -108,21 +121,18 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R3）
+## 7. 建议的下一步（R4）
 
-R1 的「A」与 R2 的「B、C」均已完成，真机线（BG-011/012/013/030/031/040）被
-**授权闸 + 设备 + 主机 frida** 三重阻塞。因此 R3 建议只做**主机侧可交付**的项：
+R2 的 B/C 线与 R3 的主机侧策略层均已完成。真机线仍被**授权闸 + 设备 + 主机 frida** 阻塞，
+R4 的候选（详见 [`docs/STATUS.md`](./docs/STATUS.md)）：
 
-1. **[BG-032] 编译链落点** —— 需要你先三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
-   越狱机上用 Procursus 工具链。这条不定，BG-031（三个脚本的真实实现）无法动。
-2. **[BG-022] 授权闸实现** —— 读 `config/targets.json`，校验 6 个授权字段非 `fill_me`、
-   `scope.bundle_ids` 非空，拒绝时给出明确原因（对应测试矩阵 T9）。
-3. **[BG-022] 日志落盘** —— 按 `bssid_map.json` 的 `log.path` 写文件，带大小上限与轮转。
-4. **扩展 L1 覆盖** —— 目前只有映射核心（纯 C）有主机单测；「JSON → BGRuleSet」的解析路径
-   在 `BGGhostMap.m` 里依赖 Foundation，Linux 上无法编译。建议把 JSON 读取抽成可注入的
-   纯 C 接口（`BGGhostRuleSetAdd` 已是现成注入点），这样配置解析也能进 L1。
-5. **范围收窄预判** —— 若 BG-011 结论是「目标 App 只走 nehelper XPC」，则 Hook 点要从
-   ObjC 方法改为 XPC 边界，`BGGhostCoreWLAN.m` / `BGGhostHotspot.m` 需要重构。
+1. **[BG-032] 编译链落点** —— 需要你三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
+   越狱机上用 Procursus 工具链。**这是当前唯一卡住整个项目的事项。**
+2. **[BG-031] 三个脚本的真实实现** —— 依赖 BG-032；可先把 `build.sh` 的 clang / theos
+   两条路径写成可切换形式。
+3. **ObjC 层的编译验证（风险最高）** —— `hooks/*.m` 至今没经过任何编译器。
+4. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 契约检查，解析行为仍靠人工复核。
+5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
 
 > 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**。
 

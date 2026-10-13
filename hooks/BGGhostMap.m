@@ -11,15 +11,10 @@
 //
 
 #import "BGGhostMap.h"
+#import "BGGhostConfig.h"
 #import "Hooks.h"
 
 #include <os/lock.h>
-#include <stdlib.h>
-
-/// rootless（Dopamine，/var/jb 前缀）部署时的首选路径。
-static NSString *const kBGGhostRootlessConfigPath = @"/var/jb/usr/share/bssidghost/bssid_map.json";
-/// 移动用户目录下的备选路径（日志目录的邻居，便于现场改配置）。
-static NSString *const kBGGhostMobileConfigPath = @"/var/mobile/Library/BSSIDGhost/bssid_map.json";
 
 static BGRuleSet sBGGhostRuleSet;
 static BOOL sBGGhostRuleSetLoaded = NO;
@@ -28,30 +23,6 @@ static BOOL sBGGhostRuleSetLoaded = NO;
 /// 且静态初始化不引入竞态。
 static os_unfair_lock sBGGhostRuleSetLock = OS_UNFAIR_LOCK_INIT;
 
-#pragma mark - 路径
-
-NSArray<NSString *> *BGGhostConfigSearchPaths(void) {
-    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:4];
-
-    const char *override = getenv("BGGHOST_CONFIG");
-    if (override != NULL && override[0] != '\0') {
-        NSString *overridePath = [NSString stringWithUTF8String:override];
-        if (overridePath.length > 0) {
-            [paths addObject:overridePath];
-        }
-    }
-
-    [paths addObject:kBGGhostRootlessConfigPath];
-    [paths addObject:kBGGhostMobileConfigPath];
-
-    NSString *bundled = [[NSBundle mainBundle] pathForResource:@"bssid_map" ofType:@"json"];
-    if (bundled.length > 0) {
-        [paths addObject:bundled];
-    }
-
-    return paths;
-}
-
 #pragma mark - 加载
 
 /// 调用方必须持有 sBGGhostRuleSet 的锁。
@@ -59,14 +30,8 @@ static void BGGhostLoadRuleSetLocked(void) {
     BGGhostRuleSetInit(&sBGGhostRuleSet);
     sBGGhostRuleSetLoaded = YES;
 
-    NSString *path = nil;
-    NSFileManager *fm = [NSFileManager defaultManager];
-    for (NSString *candidate in BGGhostConfigSearchPaths()) {
-        if (candidate.length > 0 && [fm fileExistsAtPath:candidate]) {
-            path = candidate;
-            break;
-        }
-    }
+    // 路径解析统一由配置层负责（候选目录 + bundle 回退）。
+    NSString *path = BGGhostResolveConfigPath(@"bssid_map.json");
     if (path == nil) {
         BGGhostLog(@"映射表：未找到配置文件，按全关闭处理（行为不变）");
         return;

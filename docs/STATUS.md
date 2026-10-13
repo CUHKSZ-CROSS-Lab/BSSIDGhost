@@ -9,7 +9,8 @@
 |---|---|---|
 | R1 | 工程化与流程最小集（决策 A 的先做部分） | ✅ 完成 |
 | R2 | B 线（真机抓链路方案）与 C 线（映射逻辑 + 主机侧单测）并行 | ✅ 完成（真机执行仍阻塞） |
-| R3 | 待定：编译链落点（BG-032）+ 授权闸与日志落盘（BG-022） | ⏳ 计划中 |
+| R3 | 授权闸与日志落盘（BG-022）+ L0 配置契约检查 | ✅ 完成 |
+| R4 | 待定：编译链落点（BG-032，需用户决策）→ 之后解锁 BG-031 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -22,8 +23,9 @@
 | BG-012 | 确认返回形态与格式（NSString / NSData / 结构体） | blocked | BG-011 | — |
 | BG-013 | 枚举交叉校验通道（多接口 / 公网出口 IP / mDNS / ARP） | blocked | BG-011 | — |
 | BG-020 | 实现 `BGGhostMapBSSID()` 映射逻辑（含 nil 语义与格式一致性） | **done** | — | [`hooks/BGGhostRules.c`](../hooks/BGGhostRules.c)、[`hooks/BGGhostMap.m`](../hooks/BGGhostMap.m) |
-| BG-021 | 主机侧可跑单测（不依赖真机） | **done** | BG-020 | [`tests/host/run.sh`](../tests/host/run.sh)（56/56 通过） |
-| BG-022 | 映射表读取 / 日志落盘 / 授权闸的配置读取实现 | **doing** | — | 映射表读取已完成（`BGGhostMap.m`）；日志落盘与授权闸待做 |
+| BG-021 | 主机侧可跑单测（不依赖真机） | **done** | BG-020 | [`tests/host/run.sh`](../tests/host/run.sh)（L0 + 92 条断言全通过） |
+| BG-022 | 映射表读取 / 日志落盘 / 授权闸的配置读取实现 | **done** | — | [`hooks/BGGhostAuth.c`](../hooks/BGGhostAuth.c)、[`hooks/BGGhostConfig.m`](../hooks/BGGhostConfig.m)、日志落盘在 [`hooks/Hooks.m`](../hooks/Hooks.m) |
+| BG-023 | L0 配置契约检查（JSON ↔ C 键名/容量/格式） | **done** | — | [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh)（含 3 组反向用例验证） |
 | BG-030 | 选定 Hook 框架并跑通最小 PoC | blocked | BG-011、设备 | — |
 | BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现 | todo | BG-030、BG-032 | — |
 | BG-032 | 决定编译链落点（macOS+theos / Linux 补 SDK / 越狱机上编） | todo | — | 见「阻塞项 3」 |
@@ -63,24 +65,74 @@
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R3）候选
+## 下一轮（R4）候选
 
-真机线（BG-011/012/013/030/031/040）在没有授权、设备与 frida 的情况下无法推进，
-因此 R3 的候选都落在**主机侧可完成**的工作上：
+真机线（BG-011/012/013/030/031/040）仍被授权、设备与 frida 三重阻塞。
+R3 已把主机侧「策略层」做完，R4 的可选项：
 
-1. **[BG-032] 编译链落点决策** —— 需要用户三选一，之后 BG-031 才可动。
-2. **[BG-022] 授权闸实现** —— `BGGhostValidateAuthorization()` 读取 `config/targets.json`，
-   校验 6 个授权字段非 `fill_me`、`scope.bundle_ids` 非空，并给出明确拒绝原因（对应 T9）。
-3. **[BG-022] 日志落盘** —— 按 `bssid_map.json` 的 `log.path` 写文件，带轮转与大小上限。
-4. **扩展 L1 覆盖** —— 为「配置 JSON → BGRuleSet」的解析路径补主机侧测试。
-   当前 `BGGhostMap.m` 依赖 Foundation、在 Linux 上无法编译；需先决策：条件编译，
-   还是把 JSON 读取也做成可注入的纯 C 接口（推荐后者，`BGGhostRuleSetAdd` 已经是纯 C 的注入点）。
-5. **范围收窄评估** —— 若目标 App 只走 nehelper XPC（待 BG-011 结论），
-   则 Hook 点应从 ObjC 方法改为 XPC 边界，`BGGhostCoreWLAN.m` / `BGGhostHotspot.m` 需要重构。
+1. **[BG-032] 编译链落点决策** —— 需要用户三选一，之后 BG-031 才能动。
+   这是**当前唯一会卡住整个项目**的事项。
+2. **[BG-031] 三个脚本的真实实现** —— 依赖 BG-032；可先把 `build.sh` 的 clang / theos
+   两条路径写成可切换的形式，决策前先做骨架。
+3. **ObjC 层的编译验证（风险最高）** —— `hooks/*.m` 至今**没有经过任何编译器**
+   （本机无 Foundation / iOS SDK）。可选：装 theos + iOS SDK 后 `clang -fsyntax-only`，
+   或写一层最小 Foundation 桩在 Linux 上做语法检查。
+4. **把 JSON → 结构体的解析纳入 L1** —— 目前只有「键名/容量/格式」的 L0 契约检查，
+   解析行为本身仍靠人工复核。可选：给 `BGGhostConfig.m` 抽一个可注入的纯 C 接口
+   （`BGGhostAuthConfigSetField` 已是现成注入点），或引入极小的 JSON 子集解析器。
+5. **范围收窄评估** —— 若 BG-011 结论是「目标 App 只走 nehelper XPC」，
+   则 Hook 点要从 ObjC 方法改为 XPC 边界，`BGGhostCoreWLAN.m` / `BGGhostHotspot.m` 需要重构。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R3（2026-10-13）授权闸 + 日志落盘 + L0 契约检查
+
+**交付**
+
+| 文件 | 内容 |
+|---|---|
+| [`hooks/BGGhostAuth.h`](../hooks/BGGhostAuth.h) / [`.c`](../hooks/BGGhostAuth.c) | 授权闸与作用域判定的**纯 C 核心**：字段缺值/占位符、约束开关、scope.mode、bundle 匹配 |
+| [`hooks/BGGhostConfig.h`](../hooks/BGGhostConfig.h) / [`.m`](../hooks/BGGhostConfig.m) | 读 `targets.json` → `BGAuthConfig`；读 `bssid_map.json` 的 `log` 段 → `BGLogConfig`；**fail closed** |
+| [`hooks/Hooks.m`](../hooks/Hooks.m) | 授权闸接入 `BGGhostInstallHooks`（拒绝时写明原因与责任字段）；日志落盘 + 1 MiB 轮转 |
+| [`tests/host/test_bgg_auth.c`](../tests/host/test_bgg_auth.c) | 36 条断言 |
+| [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh) | L0 契约检查：JSON 键名 ↔ C 侧 `kBGAuthFieldKeys`、容量上限、BSSID 格式、日志设置 |
+
+**验证证据**
+
+```
+$ tests/host/run.sh
+==> [L0] 配置契约检查 … 通过
+==> [test_bgg_rules] 结果：56 通过, 0 失败
+==> [test_bgg_auth]  结果：36 通过, 0 失败
+==> 全部测试目标通过
+```
+
+契约检查器的**反向验证**（用 /tmp 副本注入故障，确认不是空转）：
+
+| 注入的故障 | 结果 |
+|---|---|
+| 把 `authorization.target_app_owner` 改名 | ✅ 按预期失败（缺字段 + 多出未知字段） |
+| `scope.mode` 改成 `whitelist` | ✅ 按预期失败 |
+| 删掉 `constraints.only_test_network` | ✅ 按预期失败 |
+
+**R3 决策**
+
+| 项 | 结论 | 理由 |
+|---|---|---|
+| 闸门顺序 | 授权字段 → 约束 → 作用域声明 → 进程匹配，**按此顺序短路** | 未授权时不应给出「进程是否在作用域」这类误导性放行线索 |
+| 空白值 | 全空白视为「未填写」 | 防止用一个空格绕过授权闸 |
+| 占位符识别 | 忽略前后空白、大小写不敏感 | `fill_me` / `  FILL_ME  ` 都要拦住 |
+| `constraints` 语义 | 三项必须全为 true，否则拒绝 | 与 targets.json 既有取值一致，是「只在受控环境使用」的硬约束 |
+| 未知授权键名 | 记录日志并忽略；L0 检查会直接失败 | 拼错字段 = 授权实际未登记，必须能被发现 |
+| 配置读取失败 | 一律按未授权处理（fail closed） | 读不到配置不能等于放行 |
+| 日志轮转 | 超过 `log.max_bytes`（默认 1 MiB）改名 `<path>.1`，只留一份备份 | 设备磁盘有限，避免日志无限增长 |
+| 锁顺序 | 授权配置锁 → 日志配置锁 → 日志写入锁 | 三者单向获取，无环；配置层自身只用 NSLog，避免自锁 |
+
+**顺带修复**：`BGGhostMap.m` 原先自带一套配置路径解析（`BGGHOST_CONFIG` 环境变量），
+已统一到配置层的 `BGGhostResolveConfigPath()`（环境变量改为 `BGGHOST_CONFIG_DIR`），
+避免两处路径规则日后漂移。
 
 ### R2（2026-10-13）B 线与 C 线并行
 
