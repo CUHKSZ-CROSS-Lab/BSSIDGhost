@@ -77,9 +77,10 @@ BSSIDGhost/
 ├── .gitignore
 ├── docs/
 │   ├── STATUS.md             # 进度真源（任务板 BG-xxx + 轮次记录）
-│   ├── tech-chain.md         # 技术链路拆解与 Hook 点调研
+│   ├── tech-chain.md         # 技术链路拆解与 Hook 点调研（§2.2 可证伪实验）
 │   ├── device-setup.md       # 真机准备与抓栈 SOP（B 线）
-│   ├── build-chain-options.md# 编译链落点（BG-032）决策说明 + 已实测环境事实
+│   ├── build-chain-options.md # 编译链落点（BG-032）决策留档（已选 C）
+│   ├── ondevice-build-setup.md # 设备端编译与验证环境搭建（BG-032 方案 C 的 SOP）
 │   └── naming.md             # 命名规范
 ├── config/
 │   ├── bssid_map.json        # BSSID 映射表（真实值 → 伪造值）+ 日志设置
