@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+#
+# BSSIDGhost - 三个脚本共用的工具函数。
+#
+# 只应被 source，不要直接执行：
+#   source "$(dirname "$0")/lib/common.sh"
+#
+# 这里刻意**不重新实现**授权闸与映射的判定逻辑（那在 hooks/BGGhostAuth.c 与
+# hooks/BGGhostRules.c，由 tests/host 的 92 条断言覆盖）。本文件里的检查是
+# 「明显未授权时不要继续」的脚本侧防线，语义与 C 侧保持一致，并由
+# tests/host/check-scripts.sh 做正向/反向验证。
+#
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "scripts/lib/common.sh 只应被 source，不要直接执行。" >&2
+    exit 1
+fi
+
+BG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BG_DRY_RUN="${BG_DRY_RUN:-0}"
+
+# 越狱形态已确认（R1）：Dopamine / rootless，iOS 15.0-16.6.x，路径前缀 /var/jb
+BG_JB_PREFIX="${BGGHOST_JB_PREFIX:-/var/jb}"
+BG_MIN_IOS="${BGGHOST_MIN_IOS:-15.0}"
+BG_INSTALL_DYLIB_DIR="${BGGHOST_INSTALL_DYLIB_DIR:-${BG_JB_PREFIX}/usr/lib}"
+BG_SHARE_DIR="${BGGHOST_SHARE_DIR:-${BG_JB_PREFIX}/usr/share/bssidghost}"
+BG_DEVICE_LOG="${BGGHOST_LOG:-/var/mobile/Library/Logs/BSSIDGhost/ghost.log}"
+
+# --- 输出 -------------------------------------------------------------------
+
+bg_step() { printf '==> %s\n' "$*"; }
+bg_info() { printf '    %s\n' "$*"; }
+bg_warn() { printf '!! %s\n' "$*" >&2; }
+bg_die()  { printf '!! %s\n' "$*" >&2; exit 1; }
+
+# --- 依赖 -------------------------------------------------------------------
+
+bg_require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || bg_die "未找到命令 $1${2:+（$2）}"
+}
+
+bg_require_jq() {
+    bg_require_cmd jq "配置解析与过滤器生成都依赖它"
+}
+
+# --- 执行（支持 --dry-run）---------------------------------------------------
+
+# 打印一条命令。安全字符集内的参数原样输出，其余用单引号包住，
+# 既保留参数边界（可直接复制执行），又比 %q 的 \ 转义更易读。
+bg_print_cmd() {
+    printf '    [dry-run]'
+    local arg quoted
+    for arg in "$@"; do
+        if [[ "${arg}" =~ ^[A-Za-z0-9_@%+=:,./-]+$ ]]; then
+            printf ' %s' "${arg}"
+        else
+            quoted="${arg//\'/\'\\\'\'}"
+            printf " '%s'" "${quoted}"
+        fi
+    done
+    printf '\n'
+}
+
+# 非 dry-run 时真正执行；dry-run 只打印。
+bg_run() {
+    if [[ "${BG_DRY_RUN}" -eq 1 ]]; then
+        bg_print_cmd "$@"
+        return 0
+    fi
+    "$@"
+}
+
+bg_require_not_dry_run() {
+    [[ "${BG_DRY_RUN}" -eq 0 ]] || bg_die "$1 在 --dry-run 下不可用（会真的改动设备/产物）"
+}
+
+# --- 配置路径 ---------------------------------------------------------------
+
+bg_targets_json() { printf '%s/config/targets.json\n' "${BG_ROOT}"; }
+bg_map_json()     { printf '%s/config/bssid_map.json\n' "${BG_ROOT}"; }
+
+# 授权字段键名必须与 hooks/BGGhostAuth.c 的 kBGAuthFieldKeys 一致；
+# tests/host/check-config-contract.sh 会强制这一点。
+BG_AUTH_KEYS=(target_app_owner authorized_by authorization_ref purpose test_device test_ap)
+BG_CONSTRAINT_KEYS=(only_test_devices only_test_network no_production_targets)
+
+# --- 授权闸（脚本侧防线，语义对齐 hooks/BGGhostAuth.c）----------------------
+
+BG_GATE_REASON=""
+
+# 只报告，不退出：通过返回 0；不通过返回 1，并把原因写进 BG_GATE_REASON。
+bg_gate_report() {
+    BG_GATE_REASON=""
+    local targets
+    targets="$(bg_targets_json)"
+
+    if [[ ! -f "${targets}" ]]; then
+        BG_GATE_REASON="缺少 ${targets}"
+        return 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        BG_GATE_REASON="未安装 jq（无法解析配置）"
+        return 1
+    fi
+    if ! jq empty "${targets}" 2>/dev/null; then
+        BG_GATE_REASON="${targets} 不是合法 JSON"
+        return 1
+    fi
+
+    local mode
+    mode="$(jq -r '.scope.mode // ""' "${targets}")"
+    case "${mode}" in
+        allowlist|all) ;;
+        *) BG_GATE_REASON="scope.mode 非法或缺失：'${mode}'（应为 allowlist 或 all）"; return 1 ;;
+    esac
+
+    local key
+    for key in "${BG_AUTH_KEYS[@]}"; do
+        if ! jq -e --arg k "${key}" '.authorization[$k] | type == "string"' "${targets}" >/dev/null; then
+            BG_GATE_REASON="缺少 authorization.${key}（或不是字符串）"
+            return 1
+        fi
+    done
+
+    local pending
+    pending="$(jq -r '
+        [ .authorization
+          | to_entries[]
+          | select(.key | startswith("_") | not)
+          | select(.value | type == "string")
+          | select(((.value | gsub("^\\s+|\\s+$"; "")) | length) == 0
+                   or ((.value | gsub("^\\s+|\\s+$"; "")) | ascii_downcase) == "fill_me")
+        ] | length' "${targets}")"
+    if [[ "${pending}" -ne 0 ]]; then
+        BG_GATE_REASON="仍有 ${pending} 个授权字段未填写（空 / fill_me）"
+        return 1
+    fi
+
+    for key in "${BG_CONSTRAINT_KEYS[@]}"; do
+        if [[ "$(jq -r --arg k "${key}" '.constraints[$k] // false' "${targets}")" != "true" ]]; then
+            BG_GATE_REASON="constraints.${key} 必须为 true"
+            return 1
+        fi
+    done
+
+    if [[ "${mode}" == "allowlist" ]]; then
+        local count
+        count="$(jq -r '[.scope.bundle_ids[]? | select(type == "string" and length > 0)] | length' "${targets}")"
+        if [[ "${count}" -lt 1 ]]; then
+            BG_GATE_REASON="scope.mode=allowlist 但 scope.bundle_ids 为空"
+            return 1
+        fi
+    fi
+
+    local valid total
+    valid="$(jq -r '[.scope.bundle_ids[]? | select(type == "string" and length > 0)] | length' "${targets}")"
+    total="$(jq -r '[.scope.bundle_ids[]?] | length' "${targets}")"
+    if [[ "${valid}" != "${total}" ]]; then
+        BG_GATE_REASON="scope.bundle_ids 含非字符串或空字符串项"
+        return 1
+    fi
+
+    BG_GATE_SCOPE_MODE="${mode}"
+    BG_GATE_BUNDLE_COUNT="${valid}"
+    return 0
+}
+
+# 通过则继续，不通过则终止脚本。
+bg_gate_check() {
+    if ! bg_gate_report; then
+        bg_die "授权闸未通过：${BG_GATE_REASON}。未登记授权不得构建或部署 —— 见 README 的用途与授权要求。"
+    fi
+    bg_info "授权闸：通过（scope.mode=${BG_GATE_SCOPE_MODE}，bundle_ids=${BG_GATE_BUNDLE_COUNT} 项）"
+}
+
+# --- theos 过滤器 -----------------------------------------------------------
+
+# 从 config/targets.json 生成 Substrate/ElleKit 过滤器 plist。
+# 安全取向：**始终按 bundle_ids 过滤**，不因 scope.mode=all 而放宽注入范围；
+# bundle_ids 为空时直接拒绝（否则插件会在所有进程加载）。
+bg_generate_filter_plist() {
+    local out="$1"
+    local targets
+    targets="$(bg_targets_json)"
+    bg_require_jq
+
+    local bundles
+    bundles="$(jq -r '[.scope.bundle_ids[]? | select(type == "string" and length > 0) | @json] | join(", ")' "${targets}")"
+    [[ -n "${bundles}" ]] || bg_die "scope.bundle_ids 为空：拒绝生成「无过滤器」的 plist（会让插件在所有进程加载）"
+
+    mkdir -p "$(dirname "${out}")"
+    printf '{ Filter = { Bundles = ( %s ); }; }\n' "${bundles}" > "${out}"
+    bg_info "过滤器：$(basename "${out}") -> Bundles = ( ${bundles} )"
+}
+
+# 打包前检查 control 里是否还有占位符（<team> 等）。
+bg_check_control_placeholders() {
+    local control="$1"
+    [[ -f "${control}" ]] || bg_die "缺少 ${control}"
+    if grep -q '<team>' "${control}"; then
+        bg_die "theos/control 仍含占位符 <team>：请先填入实际团队标识（命名规范见 docs/naming.md）"
+    fi
+}

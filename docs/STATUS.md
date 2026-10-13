@@ -10,7 +10,8 @@
 | R1 | 工程化与流程最小集（决策 A 的先做部分） | ✅ 完成 |
 | R2 | B 线（真机抓链路方案）与 C 线（映射逻辑 + 主机侧单测）并行 | ✅ 完成（真机执行仍阻塞） |
 | R3 | 授权闸与日志落盘（BG-022）+ L0 配置契约检查 | ✅ 完成 |
-| R4 | 待定：编译链落点（BG-032，需用户决策）→ 之后解锁 BG-031 | ⏳ 计划中 |
+| R4 | theos 打包骨架 + 三个脚本真实实现（BG-031/033），均带 `--dry-run` 且已自检 | ✅ 完成 |
+| R5 | 待定：**BG-032 编译链落点仍需你决策**；之后是 BG-030/031 的真机与真编译验证 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -27,8 +28,10 @@
 | BG-022 | 映射表读取 / 日志落盘 / 授权闸的配置读取实现 | **done** | — | [`hooks/BGGhostAuth.c`](../hooks/BGGhostAuth.c)、[`hooks/BGGhostConfig.m`](../hooks/BGGhostConfig.m)、日志落盘在 [`hooks/Hooks.m`](../hooks/Hooks.m) |
 | BG-023 | L0 配置契约检查（JSON ↔ C 键名/容量/格式） | **done** | — | [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh)（含 3 组反向用例验证） |
 | BG-030 | 选定 Hook 框架并跑通最小 PoC | blocked | BG-011、设备 | — |
-| BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现 | todo | BG-030、BG-032 | — |
-| BG-032 | 决定编译链落点（macOS+theos / Linux 补 SDK / 越狱机上编） | todo | — | 见「阻塞项 3」 |
+| BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现 | **doing** | BG-032（真编译验证） | 三条命令已实现并自检（`--dry-run`）：[`scripts/`](../scripts/)、[`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)；**待真实工具链验证** |
+| BG-032 | 决定编译链落点（macOS+theos / Linux 补 SDK / 越狱机上编） | **todo（需用户决策）** | — | 见「阻塞项 3」 |
+| BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../Makefile)、[`control`](../control)、[`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
+| BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)（17/17 通过） |
 | BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
 
 ## 已确认环境事实（不要重复探测）
@@ -65,27 +68,66 @@
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R4）候选
+## 下一轮（R5）候选
 
-真机线（BG-011/012/013/030/031/040）仍被授权、设备与 frida 三重阻塞。
-R3 已把主机侧「策略层」做完，R4 的可选项：
+R4 已把编译与部署的**管道**修好（两条编译链、过滤器生成、授权闸前置、`--dry-run` 自检），
+但**没有在真实工具链上编译过一行**。R5 的可选项按价值排序：
 
-1. **[BG-032] 编译链落点决策** —— 需要用户三选一，之后 BG-031 才能动。
-   这是**当前唯一会卡住整个项目**的事项。
-2. **[BG-031] 三个脚本的真实实现** —— 依赖 BG-032；可先把 `build.sh` 的 clang / theos
-   两条路径写成可切换的形式，决策前先做骨架。
-3. **ObjC 层的编译验证（风险最高）** —— `hooks/*.m` 至今**没有经过任何编译器**
-   （本机无 Foundation / iOS SDK）。可选：装 theos + iOS SDK 后 `clang -fsyntax-only`，
-   或写一层最小 Foundation 桩在 Linux 上做语法检查。
-4. **把 JSON → 结构体的解析纳入 L1** —— 目前只有「键名/容量/格式」的 L0 契约检查，
-   解析行为本身仍靠人工复核。可选：给 `BGGhostConfig.m` 抽一个可注入的纯 C 接口
-   （`BGGhostAuthConfigSetField` 已是现成注入点），或引入极小的 JSON 子集解析器。
-5. **范围收窄评估** —— 若 BG-011 结论是「目标 App 只走 nehelper XPC」，
-   则 Hook 点要从 ObjC 方法改为 XPC 边界，`BGGhostCoreWLAN.m` / `BGGhostHotspot.m` 需要重构。
+1. **[BG-032] 编译链落点决策（必须你定）** —— 三选一。这是**唯一卡住整个项目**的事项；
+   不定它，BG-031 无法完成，`hooks/*.m` 也无法得到任何编译验证。
+2. **ObjC 层的语法验证（风险最高，且不依赖真机）** —— `hooks/*.m` 至今没经过任何编译器。
+   可选：装 theos + iOS SDK 后 `clang -fsyntax-only`；或写一层最小 Foundation 桩
+   （`NSString`/`NSDictionary`/`NSJSONSerialization` 声明）在 Linux 上做语法检查。
+   后者不需要下载 SDK，是当前信息量最高的一步。
+3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约，解析行为仍靠人工复核。
+4. **`--respring` / `sbreload` 与日志抓取的真机验证** —— 需要设备。
+5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R4（2026-10-13）theos 打包骨架 + 三个脚本真实实现
+
+**交付**
+
+| 文件 | 内容 |
+|---|---|
+| [`Makefile`](../Makefile) | theos 打包：`THEOS_PACKAGE_SCHEME=rootless`、`TARGET iphone:clang:latest:15.0`、`ARCHS arm64 arm64e`、`-fobjc-arc` |
+| [`control`](../control) | deb 元信息；含 `<team>` 占位符（未替换则打包被拒）；`Depends: ellekit \| mobilesubstrate` |
+| [`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) | 过滤器（**只按 `scope.bundle_ids` 过滤**），构建时重新生成，L0 检查防止漂移 |
+| [`scripts/lib/common.sh`](../scripts/lib/common.sh) | 三个脚本共用：授权闸（脚本侧防线）、过滤器生成、`--dry-run` 执行器 |
+| [`scripts/build.sh`](../scripts/build.sh) | 两条编译链（theos / clang 可切换或自动选择）、多架构 + `llvm-lipo`、生成过滤器与随包配置 |
+| [`scripts/deploy.sh`](../scripts/deploy.sh) | `deb`（推送 + `dpkg -i`）与 `files`（dylib + plist）两种方式；rootless `/var/jb` 路径；自动选择唯一设备 |
+| [`scripts/verify.sh`](../scripts/verify.sh) | 只读验证：本地闸门状态 + SSH 抓日志判定 T1/T9；退出码 0/1/2 区分「通过 / 失败 / 仅本地」 |
+| [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh) | 脚本自检：10 条正向（dry-run 命令拼装）+ 7 条反向（授权闸、`<team>`、参数校验） |
+
+**验证证据**
+
+```
+$ tests/host/run.sh
+==> [L0] 配置契约检查 … 通过（含「过滤器 plist 与 bundle_ids 一致」）
+==> [L0] 脚本自检 … 结果：17 通过, 0 失败
+==> [test_bgg_rules] 结果：56 通过, 0 失败
+==> [test_bgg_auth]  结果：36 通过, 0 失败
+==> 全部测试目标通过
+```
+
+反向用例都是**真的会失败**的路径，不是空转：仓库当前 `fill_me` → `build`/`deploy` 拒绝；
+`control` 留 `<team>` → theos 打包拒绝；`--toolchain cargo` / `--method magic` / 未知参数 → 拒绝。
+
+**R4 决策**
+
+| 项 | 结论 | 理由 |
+|---|---|---|
+| 编译链默认 | `--toolchain auto`：有 `$THEOS` 用 theos，否则 clang | 两种环境都能开箱即用；显式传参可覆盖 |
+| 私有框架链接 | **不链接** CoreWLAN 等私有框架，运行时用 `NSClassFromString`/`dlopen` | 避免依赖 SDK 里是否存在对应 stub |
+| deb 路线的过滤器 | **始终按 `scope.bundle_ids` 过滤**，不因 `mode=all` 放宽注入范围；`bundle_ids` 为空则拒绝打包 | 防止误注入系统进程；`mode=all` 只影响运行期判定 |
+| 过滤器与随包配置 | 由 `build.sh` 生成，`layout/usr/share/bssidghost/` 走 `.gitignore` | 避免与 `config/` 漂移；L0 检查兜住提交在仓库里的那份 plist |
+| 仓库里的 plist | 保留一份「安全默认」并纳入 L0 一致性检查 | 防止有人直接 `make package` 时插件在所有进程加载 |
+| 脚本侧授权闸 | 与 `BGGhostAuth.c` 语义对齐，但**不重复实现判定** | 真正的判定有 36 条单测；脚本只做「明显未授权就停」 |
+| `verify.sh` 退出码 | 0 通过 / 1 失败 / 2 仅本地 | 「没做设备侧检查」不能等同于「验证通过」 |
+| theos 产物名 | `BSSIDGhost.dylib`（theos 约定），与 `libbssidghost.dylib` 并存 | theos 无法加 `lib` 前缀；**已记入 [`naming.md`](naming.md) 待你确认**，未擅自改 HANDOFF §2 |
 
 ### R3（2026-10-13）授权闸 + 日志落盘 + L0 契约检查
 

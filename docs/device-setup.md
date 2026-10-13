@@ -30,6 +30,9 @@
   需走 npmmirror：`npm i -g frida --registry=https://registry.npmmirror.com`）。
   Node 路径只提供绑定库；CLI 抓栈仍推荐 Python 版 `frida-tools`。
 
+> **部署不需要 frida**：`scripts/deploy.sh` 只走 SSH + `dpkg -i`（或 scp 文件），
+> 因此「装 deb 并让 Hook 生效」这条路与本节无关；frida 只服务于**抓栈**（`tests/frida/`）。
+
 ## 3. 设备侧：部署 frida-server
 
 ```sh

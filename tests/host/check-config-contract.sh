@@ -186,6 +186,24 @@ else
     ok "log.max_bytes=${LOG_MAX}"
 fi
 
+# --- 7. 提交在仓库里的过滤器 plist 必须与 targets.json 一致 ------------------
+# 它由 scripts/build.sh 重新生成，但仓库里留一份「安全默认」以免直接 make package
+# 时插件在所有进程加载。这里防止两份内容漂移。
+PLIST="${ROOT}/layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist"
+if [[ -f "${PLIST}" ]]; then
+    mapfile -t PLIST_BUNDLES < <(grep -oE '"[^"]+"' "${PLIST}" | tr -d '"' | sort)
+    mapfile -t CFG_BUNDLES < <(jq -r '.scope.bundle_ids[]? | select(type == "string" and length > 0)' "${TARGETS_JSON}" | sort)
+    if [[ "${#PLIST_BUNDLES[@]}" -eq 0 ]]; then
+        bad "${PLIST##*/} 里没有解析到任何 Bundle，会在所有进程加载"
+    elif [[ "$(printf '%s\n' "${PLIST_BUNDLES[@]}")" == "$(printf '%s\n' "${CFG_BUNDLES[@]}")" ]]; then
+        ok "过滤器 plist 与 targets.json 的 bundle_ids 一致（${#CFG_BUNDLES[@]} 项）"
+    else
+        bad "过滤器 plist 与 targets.json 的 bundle_ids 不一致：plist=[${PLIST_BUNDLES[*]}] / config=[${CFG_BUNDLES[*]}]（重新生成：scripts/build.sh --dry-run --toolchain theos）"
+    fi
+else
+    note "未找到 ${PLIST##*/}；只走 clang 手工注入路线时可以不提交它"
+fi
+
 # --- 汇总 --------------------------------------------------------------------
 echo
 if [[ "${FAILED}" -ne 0 ]]; then

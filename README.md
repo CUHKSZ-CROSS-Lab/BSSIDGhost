@@ -58,6 +58,8 @@
 BSSIDGhost/
 ├── README.md                 # 本文件
 ├── HANDOFF.md                # 交接备忘（定义 / 已定决策 / 风险 / 下一步）
+├── Makefile                  # theos 打包（rootless / Dopamine）
+├── control                   # deb 元信息（含 <team> 占位符，未替换则拒绝打包）
 ├── .gitignore
 ├── docs/
 │   ├── STATUS.md             # 进度真源（任务板 BG-xxx + 轮次记录）
@@ -65,8 +67,8 @@ BSSIDGhost/
 │   ├── device-setup.md       # 真机准备与抓栈 SOP（B 线）
 │   └── naming.md             # 命名规范
 ├── config/
-│   ├── bssid_map.json        # BSSID 映射表（真实值 → 伪造值）
-│   └── targets.json          # 目标 App 作用域与测试授权记录
+│   ├── bssid_map.json        # BSSID 映射表（真实值 → 伪造值）+ 日志设置
+│   └── targets.json          # 目标 App 作用域与测试授权记录（授权闸的输入）
 ├── hooks/
 │   ├── Hooks.h               # Hook 入口声明 + 日志与授权判定声明
 │   ├── Hooks.m               # 统一注册、授权闸、日志落盘与轮转
@@ -76,13 +78,16 @@ BSSIDGhost/
 │   ├── BGGhostMap.h/.m       # NSString 映射胶水
 │   ├── BGGhostCoreWLAN.h/.m  # CoreWLAN / CWFInterface Hook（主通道）
 │   └── BGGhostHotspot.h/.m   # NEHotspotNetwork / CNCopy* Hook（补充通道）
+├── layout/                   # theos 安装布局（rootless 下映射到 /var/jb）
+│   └── Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist   # 过滤器（构建时按 bundle_ids 重新生成）
 ├── scripts/
-│   ├── build.sh              # 编译 dylib / deb
-│   ├── deploy.sh             # 部署与注入到越狱设备（rootless /var/jb）
-│   └── verify.sh             # 验证 Hook 是否生效
+│   ├── lib/common.sh         # 三个脚本共用：授权闸、过滤器生成、--dry-run 执行
+│   ├── build.sh              # 构建：theos 打包 / clang 交叉编译（均先过授权闸）
+│   ├── deploy.sh             # 部署：deb 或 files 方式推送到越狱设备（rootless /var/jb）
+│   └── verify.sh             # 验证：本地闸门状态 + 设备日志判定（只读）
 └── tests/
     ├── README.md             # 测试矩阵与校验方法
-    ├── host/                 # L0 配置契约检查 + L1 纯 C 单测（不依赖真机）
+    ├── host/                 # L0 契约检查 + 脚本自检 + L1 纯 C 单测（不依赖真机）
     ├── frida/                # L2：真机只读抓栈脚本与用法
     └── evidence/             # 证据命名、摘要模板与纪律
 ```

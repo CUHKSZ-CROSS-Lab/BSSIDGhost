@@ -1,9 +1,14 @@
 # 构建产物
 /build/
+/packages/
+/.theos/
 *.dylib
 *.deb
 *.o
 *.dSYM/
+
+# 由 scripts/build.sh 生成（随包配置，避免与 config/ 漂移）
+/layout/usr/share/bssidghost/
 
 # 日志与大体量证据
 *.log

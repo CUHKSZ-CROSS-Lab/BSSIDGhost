@@ -77,6 +77,23 @@
   交叉校验 JSON 键名 ↔ C 侧字段表、容量上限、BSSID 格式、日志设置，并用 3 组注入故障验证过它不是空转。
 - **验证**：`tests/host/run.sh` → L0 通过 + `BGGhostRules` 56/56 + `BGGhostAuth` 36/36。
 
+**R4 已完成（2026-10-13，编译/部署管道）**：
+
+- **theos 打包骨架**：[`Makefile`](./Makefile)（rootless、`ARCHS arm64 arm64e`、`TARGET iphone:clang:latest:15.0`）、
+  [`control`](./control)（含 `<team>` 占位符，未替换则拒绝打包）、
+  [`layout/…/BSSIDGhost.plist`](./layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist)（过滤器）。
+- **三个脚本真实实现**：[`scripts/lib/common.sh`](./scripts/lib/common.sh)（共用授权闸 + `--dry-run` 执行器）、
+  [`build.sh`](./scripts/build.sh)（theos / clang 双路径，可 `auto`）、
+  [`deploy.sh`](./scripts/deploy.sh)（deb 或 files，rootless `/var/jb`）、
+  [`verify.sh`](./scripts/verify.sh)（只读，退出码 0/1/2）。
+- **脚本自检**：[`tests/host/check-scripts.sh`](./tests/host/check-scripts.sh) 17/17
+  （10 条正向 dry-run + 7 条反向：授权闸、`<team>`、参数校验）。
+- **仍未做**：**没有在真实工具链上编译过一行**（BG-032 未决）。
+
+**⚠️ 需要你确认的命名细节**：theos 产物名固定为 `BSSIDGhost.dylib`（不带 `lib` 前缀），
+与 HANDOFF §2 记录的 `libbssidghost.dylib` 并存为「两条路线两个名字」。
+选项与影响见 [`docs/naming.md`](./docs/naming.md)，**未擅自改动既有决策**。
+
 ## 4. 未决事项（需要用户输入）
 
 - ~~目标测试机越狱类型与 iOS 版本未确认~~ → **已确认（R1）**：Dopamine / **rootless**，
@@ -121,20 +138,22 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R4）
+## 7. 建议的下一步（R5）
 
-R2 的 B/C 线与 R3 的主机侧策略层均已完成。真机线仍被**授权闸 + 设备 + 主机 frida** 阻塞，
-R4 的候选（详见 [`docs/STATUS.md`](./docs/STATUS.md)）：
+R2 的 B/C 线、R3 的策略层、R4 的编译/部署管道均已完成。**没有任何代码在真实工具链上编译过**，
+真机线仍被授权闸 + 设备 + 主机 frida 阻塞。R5 按价值排序：
 
-1. **[BG-032] 编译链落点** —— 需要你三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
-   越狱机上用 Procursus 工具链。**这是当前唯一卡住整个项目的事项。**
-2. **[BG-031] 三个脚本的真实实现** —— 依赖 BG-032；可先把 `build.sh` 的 clang / theos
-   两条路径写成可切换形式。
-3. **ObjC 层的编译验证（风险最高）** —— `hooks/*.m` 至今没经过任何编译器。
-4. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 契约检查，解析行为仍靠人工复核。
+1. **[BG-032] 编译链落点（必须你定）** —— 三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
+   越狱机上用 Procursus 工具链。**这是唯一卡住整个项目的事项。**
+2. **ObjC 层的语法验证（不依赖真机、风险最高）** —— `hooks/*.m` 至今没经过任何编译器。
+   可选：装 theos + iOS SDK 后 `clang -fsyntax-only`，或写一层最小 Foundation 桩在 Linux 上做语法检查
+   （不需要下载 SDK，信息量最高）。
+3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约，解析行为靠人工复核。
+4. **[BG-031] 真编译验证** —— 依赖 1。
 5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
 
-> 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**。
+> 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**；
+> 另有一项命名细节待确认（theos 产物名，见 [`docs/naming.md`](./docs/naming.md)）。
 
 ## 8. R1 调研结论：skill / plugin 机制（本会话实测）
 

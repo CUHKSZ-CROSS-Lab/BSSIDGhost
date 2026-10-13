@@ -29,6 +29,10 @@ echo
 echo "==> [L0] 配置契约检查"
 bash "${ROOT}/tests/host/check-config-contract.sh"
 
+echo
+echo "==> [L0] 脚本自检（--dry-run 正向 + 授权闸反向）"
+bash "${ROOT}/tests/host/check-scripts.sh"
+
 mkdir -p "${OUT_DIR}"
 
 # 测试目标格式：<可执行名>:<被测核心>:<测试文件>
