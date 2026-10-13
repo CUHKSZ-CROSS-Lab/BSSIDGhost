@@ -50,6 +50,10 @@ echo
 echo "==> [L1] 授权闸模拟器自检（真实判定代码 + 真实 JSON 取值）"
 bash "${ROOT}/tests/host/gate-sim.sh" --self-test
 
+echo
+echo "==> [L1] BSSID 映射模拟器自检（真实映射代码 + 真实 JSON 取值）"
+bash "${ROOT}/tests/host/map-sim.sh" --self-test
+
 mkdir -p "${OUT_DIR}"
 
 # 测试目标格式：<可执行名>:<被测核心>:<测试文件>

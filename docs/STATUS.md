@@ -13,7 +13,8 @@
 | R4 | theos 打包骨架 + 三个脚本真实实现（BG-031/033），均带 `--dry-run` 且已自检 | ✅ 完成 |
 | R5 | ObjC 层首次获得编译器检查（BG-035：最小 Foundation 桩 + `-fsyntax-only`） | ✅ 完成 |
 | R6 | 授权闸模拟器（BG-036）+ 编译链决策说明（BG-032 的决策材料） | ✅ 完成 |
-| R7 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧仅剩边角项 | ⏳ 计划中 |
+| R7 | 映射模拟器（BG-038）+ nehelper 可证伪实验设计（BG-039） | ✅ 完成 |
+| R8 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧已基本做完 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -37,6 +38,8 @@
 | BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`tests/objc-stub/`](../tests/objc-stub/)、[`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
 | BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh)、[`tests/host/gate_sim.c`](../tests/host/gate_sim.c)（自检 6/6） |
 | BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
+| BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`tests/host/map-sim.sh`](../tests/host/map-sim.sh)、[`tests/host/map_sim.c`](../tests/host/map_sim.c)（自检 8/8） |
+| BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/tech-chain.md`](tech-chain.md) §2.2、[`tests/frida/README.md`](../tests/frida/README.md) |
 | BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
 
 ## 已确认环境事实（不要重复探测）
@@ -76,26 +79,68 @@
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R7）候选
+## 下一轮（R8）候选
 
-主机侧的「能查的都查了」：契约、脚本、ObjC 语法、判定逻辑、真实配置端到端判定。
-剩下的**只有真 SDK 才能做**，以及一项待你确认的命名。按价值排序：
+主机侧已基本做完：契约、脚本、ObjC 语法、判定逻辑、映射与闸门的真实配置端到端。
+R7 又把 nehelper 那条外部结论变成了可执行、可证伪的实验。
+**剩下真正能推进项目的只有一件事**：
 
 1. **[BG-032] 编译链落点（必须你定）** —— 决策材料见
    [`docs/build-chain-options.md`](build-chain-options.md)。**唯一卡住整个项目的事项。**
-2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。届时暴露：缺 `-framework`、
-   私有 API 可用性（CoreWLAN 是否需 `dlopen`）、`install_name`、arm64e 切片。
-3. **命名决策**（theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`）—— 见
-   [`naming.md`](naming.md#项目标识)。
-4. **`--respring` / 日志抓取的真机验证** —— 需要设备。
-5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。
+3. **命名决策**（theos 产物名）—— 见 [`naming.md`](naming.md#项目标识)。
+4. **真机线** —— 需授权字段 + 设备 + frida 安装许可三者齐备（含 §2.2 两步 attach）。
 
-> 如果 1 迟迟不定，R7 我只能做边角工作（例如把 `verify.sh` 的设备侧检查再细化、
-> 或给 `docs/tech-chain.md` 补 nehelper 的可验证实验设计）。**真正的进度在你这一票。**
+> R8 若仍无决策，我能做的只剩极边角的事（例如把 `verify.sh` 的设备侧检查再细化、
+> 给 `map-sim` 加 `--explain` 之类的可用性打磨）。**这些不再改变项目的成熟度。**
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R7（2026-10-13）映射模拟器 + nehelper 可证伪实验设计
+
+**一、BSSID 映射模拟器（BG-038）**
+
+与 R6 的闸门模拟器配对，回答另一半问题：**「给定 (SSID, 真实 BSSID)，App 最终会读到什么」**。
+
+| 文件 | 内容 |
+|---|---|
+| [`tests/host/map_sim.c`](../tests/host/map_sim.c) | 读 `global/rule/default/query/querynil` 类型的 TSV，调用 `BGGhostRules.c` 的真实接口，逐条打印「返回什么 + 是替换还是透传」 |
+| [`tests/host/map-sim.sh`](../tests/host/map-sim.sh) | 用 jq 抽取真实映射表；无参数时**按配置里的每条规则自动生成查询**；`--ssid/--bssid` 指定查询；`--self-test` 8 组断言 |
+
+对当前仓库的实际输出（体现"安全默认"）：
+
+```
+全局开关: 关（整表不生效）
+规则 #1: SSID=Office_WiFi 真实=AA:BB:CC:DD:EE:FF -> 伪造=11:22:33:44:55:66 [禁用]
+默认值: 未启用（未命中规则的网络一律透传）
+
+查询: SSID=Office_WiFi 真实 BSSID=AA:BB:CC:DD:EE:FF
+      返回 "AA:BB:CC:DD:EE:FF"  [透传 —— 未命中规则 / 全局关闭 / 入参畸形]
+```
+
+自检 8/8：全局关闭透传、命中替换、**格式跟随（小写连字符入参 → 小写连字符输出）**、
+未配置网络透传（T7）、**真实值为 NULL 不构造**、default 启用生效、规则禁用透传、
+**伪造值非法 → 规则被拒且退出码 1**。
+
+> 附带收益：`BGGhostRuleSetAdd` 会校验 BSSID 格式，所以这个模拟器同时是**比 bash 正则更强的
+> 配置格式校验**（用真实代码而非重复实现）。
+
+**二、nehelper 可证伪实验设计（BG-039）**
+
+§2.1 是外部资料，为避免"抓一次栈、看到什么都往结论上套"，
+在 [`docs/tech-chain.md`](tech-chain.md) §2.2 写死了：
+
+- **假设 H1** 与「若成立应当出现的 3 类事件」；
+- **判别表**：只有 objc / 只有 xpc / 两者值不同 / 两者值相同 → 各自结论与 Hook 落点；
+- **证伪条件**：整个过程一次 `src:"xpc"` 都没出现而 App 确实读到 BSSID → H1 被证伪，§2.1 必须改写；
+- **两步 attach 步骤**：App 进程 + `nehelper` 进程（`NEHelperWiFiInfoManager` 不在 App 里）。
+
+配套改了抓栈脚本，让这个实验真能执行：
+- `OBJC_TARGETS` 增加 `NEHelperWiFiInfoManager -checkIfEntitled:` / `-wifiInfoForInterface:`；
+- XPC 写侧过滤从 4 个键扩到 8 个（增加 `result-data`/`SSID`/`BSSID`/`SSIDDATA`），
+  这样 attach 到 nehelper 时能看到**应答字典的构造**。
 
 ### R6（2026-10-13）授权闸模拟器 + 编译链决策材料
 

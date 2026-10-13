@@ -179,7 +179,10 @@ var OBJC_TARGETS = [
     { cls: 'CWNetwork', sels: ['- bssid', '- ssid'] },
     { cls: 'CWWiFiClient', sels: ['- interface', '- interfaceNames'] },
     { cls: 'NEHotspotNetwork', sels: ['- BSSID', '- SSID', '+ fetchCurrentWithCompletionHandler:'] },
-    { cls: 'NEHotspotHelper', sels: ['+ supportedNetworkInterfaces'] }
+    { cls: 'NEHotspotHelper', sels: ['+ supportedNetworkInterfaces'] },
+    // 下面这个类在 nehelper 进程里（/usr/libexec/nehelper），不在 App 进程。
+    // 要观察 entitlement 闸，需要对 nehelper 进程另开一次 attach，见 docs/tech-chain.md §2.2。
+    { cls: 'NEHelperWiFiInfoManager', sels: ['- checkIfEntitled:', '- wifiInfoForInterface:'] }
 ];
 
 var gObjcDepth = 0;
@@ -409,13 +412,15 @@ function installXpcHooks() {
     var attached = [];
 
     // 3a) 请求侧：App 构造请求字典时就能看到它要查哪个接口。
+    //     同时也记录应答字典的构造（在 nehelper 进程里附加时就是这条在起作用）。
+    var XPC_WRITE_KEYS = ['interface-name', 'sdk-version', 'delegate-class-id', 'type',
+                          'result-data', 'SSID', 'BSSID', 'SSIDDATA'];
     var setString = CONFIG.hookXpcWrites ? findGlobalExport('xpc_dictionary_set_string') : null;
     if (setString) {
         Interceptor.attach(setString, {
             onEnter: function (args) {
                 var key = keyString(args[1]);
-                if (key !== 'interface-name' && key !== 'sdk-version' &&
-                    key !== 'delegate-class-id' && key !== 'type') {
+                if (!key || XPC_WRITE_KEYS.indexOf(key) < 0) {
                     return;
                 }
                 logEvent({

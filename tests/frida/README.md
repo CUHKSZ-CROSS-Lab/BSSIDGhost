@@ -11,14 +11,24 @@
 ## 用法
 
 ```sh
-# 冷启动（能抓到启动阶段的读取）
+# 第 1 步：App 进程（冷启动能抓到启动阶段的读取）
 frida -U -f com.ss.iphone.ugc.Lark \
       -l tests/frida/capture-wifi-api.js \
       -o tests/evidence/$(date +%Y%m%d-%H%M%S)-capture.jsonl
 
-# 附加到已运行进程
+# 第 2 步：nehelper 进程（entitlement 闸与应答构造都在这里）
+#   NEHelperWiFiInfoManager 在 /usr/libexec/nehelper，不在 App 进程
+frida -U -n nehelper \
+      -l tests/frida/capture-wifi-api.js \
+      -o tests/evidence/$(date +%Y%m%d-%H%M%S)-nehelper.jsonl
+
+# 附加到已运行的目标 App
 frida -U -n Lark -l tests/frida/capture-wifi-api.js -o tests/evidence/attach-capture.jsonl
 ```
+
+> **两步都要做**：只 attach App 进程看不到 entitlement 闸；
+> 只 attach nehelper 则不知道 App 是否真的经由它。
+> 实验假设、判别表与证伪条件见 [`docs/tech-chain.md`](../../docs/tech-chain.md) §2.2。
 
 > ⚠️ 授权闸：`config/targets.json` 的授权字段未填齐前**不要对目标 App 执行**。
 > 本机当前也未安装 frida（R1 决定），因此这是**已就绪但未执行**的工具。

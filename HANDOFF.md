@@ -112,6 +112,18 @@
   含本轮实测事实 —— 本机**已有 Mach-O 链接器 `ld64.lld`**、链接只差 `-lSystem`（即 iOS SDK）、
   `theos` 与 `theos/sdks` 仓库可达、`dpkg` 在官方源、`ldid` 仅 AUR。**B 方案比原先估计的近得多。**
 
+**R7 已完成（2026-10-13，映射模拟器 + 实验设计）**：
+
+- **映射模拟器**：[`tests/host/map-sim.sh`](./tests/host/map-sim.sh) + [`map_sim.c`](./tests/host/map_sim.c) ——
+  把**真实映射表**喂给**真实映射代码**，回答「给定 (SSID, 真实 BSSID)，App 会读到什么」；
+  无参数时按配置里的规则自动生成查询。自检 8/8（含格式跟随、nil 不构造、非法值被拒）。
+  与 R6 的 `gate-sim.sh` 配对，形成**离线 dry-run 整份配置**的能力。
+- **nehelper 可证伪实验设计**：[`docs/tech-chain.md`](./docs/tech-chain.md) §2.2 ——
+  假设 H1、判别表（只有 objc / 只有 xpc / 值不同 / 值相同 → 落点选择）、
+  **证伪条件**、以及 App + `nehelper` 两步 attach 步骤。
+  抓栈脚本同步增强：加入 `NEHelperWiFiInfoManager -checkIfEntitled:`，
+  XPC 写侧过滤扩到 `result-data`/`SSID`/`BSSID`/`SSIDDATA`。
+
 **⚠️ 需要你确认的命名细节**：theos 产物名固定为 `BSSIDGhost.dylib`（不带 `lib` 前缀），
 与 HANDOFF §2 记录的 `libbssidghost.dylib` 并存为「两条路线两个名字」。
 选项与影响见 [`docs/naming.md`](./docs/naming.md)，**未擅自改动既有决策**。
@@ -160,24 +172,23 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R7）
+## 7. 建议的下一步（R8）
 
-R2–R6 已完成：B/C 线、策略层、编译部署管道、ObjC 编译期检查、闸门端到端模拟。
-**主机侧能查的都查完了**，剩下的关键路径只有真实工具链。
+R2–R7 已完成：B/C 线、策略层、编译部署管道、ObjC 编译期检查、闸门与映射两个模拟器、
+nehelper 可证伪实验设计。**主机侧基本做完了，剩下能推进项目的只有一件事。**
 
-1. **[BG-032] 编译链落点（必须你定）** —— 三选一，决策材料见
+1. **[BG-032] 编译链落点（必须你定）** —— 决策材料见
    [`docs/build-chain-options.md`](./docs/build-chain-options.md)：
    - **A** macOS + theos（风险最低，需一台 Mac）
-   - **B** 本机装 theos + iOS SDK + `ldid`（**本机已验证只差 SDK 与 ldid**，需一次安装许可）
+   - **B** 本机装 theos + iOS SDK + `ldid`（**已验证只差 SDK 与 ldid**，需一次安装许可）
    - **C** 越狱机上用 Procursus 工具链（无需安装，但迭代慢）
-2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。会暴露：缺 `-framework`、
-   CoreWLAN 等私有框架是否必须 `dlopen`/`NSClassFromString`、`install_name`、arm64e 切片。
-3. **命名决策** —— theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`，见
-   [`docs/naming.md`](./docs/naming.md#项目标识)。
-4. **真机线** —— 仍需授权字段、设备、frida 安装许可三者齐备。
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。
+3. **命名决策** —— theos 产物名，见 [`docs/naming.md`](./docs/naming.md#项目标识)。
+4. **真机线** —— 需授权字段 + 设备 + frida 安装许可齐备；抓栈按
+   [`tech-chain.md`](./docs/tech-chain.md) §2.2 的**两步 attach** 执行。
 
-> 如果 1 迟迟不定，R7 我只能做边角工作（细化 `verify.sh` 设备侧检查、
-> 或给 `tech-chain.md` 补 nehelper 的可验证实验设计）。**真正的进度在你这一票。**
+> R8 若仍无决策，剩下的只有边角打磨（`verify.sh` 设备侧细化、`map-sim --explain` 之类），
+> **不再改变项目成熟度**。
 
 ## 8. R1 调研结论：skill / plugin 机制（本会话实测）
 
