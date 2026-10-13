@@ -87,7 +87,8 @@ BSSIDGhost/
 │   └── verify.sh             # 验证：本地闸门状态 + 设备日志判定（只读）
 └── tests/
     ├── README.md             # 测试矩阵与校验方法
-    ├── host/                 # L0 契约检查 + 脚本自检 + L1 纯 C 单测（不依赖真机）
+    ├── host/                 # L0 契约/脚本/ObjC 语法检查 + L1 纯 C 单测（不依赖真机）
+    ├── objc-stub/            # 给 hooks/*.m 做 -fsyntax-only 的最小 Foundation 声明桩
     ├── frida/                # L2：真机只读抓栈脚本与用法
     └── evidence/             # 证据命名、摘要模板与纪律
 ```

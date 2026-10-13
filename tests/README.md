@@ -10,6 +10,7 @@
 |---|---|---|
 | [`host/check-config-contract.sh`](host/check-config-contract.sh) | **L0**（主机） | 校验 `config/*.json` 与 `hooks/*.c` 的键名/类型/容量契约，以及过滤器 plist 与 `bundle_ids` 是否一致 |
 | [`host/check-scripts.sh`](host/check-scripts.sh) | **L0**（主机） | 用 `--dry-run` 正向验证三个脚本的命令拼装；反向验证授权闸与 `<team>` 占位符会拦住执行 |
+| [`host/check-objc-syntax.sh`](host/check-objc-syntax.sh) | **L0**（主机） | 用 [`objc-stub/`](objc-stub/) 的最小 Foundation 桩，对 `hooks/*.m` 做 `clang -fsyntax-only`（含 ARC 与格式串检查）+ 头文件自包含检查 |
 | [`host/`](host/) 的单测 | **L1**（主机，不依赖真机） | `run.sh` 编译并运行 `BGGhostRules.c` 与 `BGGhostAuth.c` 的纯 C 单测 |
 | [`frida/`](frida/) | **L2**（真机只读抓栈） | `capture-wifi-api.js` + 用法，落实 BG-011 |
 | [`evidence/`](evidence/) | 证据 | 原始输出与结论摘要的命名/模板/纪律 |
@@ -18,9 +19,10 @@
 # L0 + L1：本机即可跑（推荐入口）
 tests/host/run.sh
 
-# 只跑配置契约检查 / 脚本自检
+# 单项运行
 tests/host/check-config-contract.sh
 tests/host/check-scripts.sh
+tests/host/check-objc-syntax.sh
 ```
 
 ## 用例矩阵

@@ -11,7 +11,8 @@
 | R2 | B 线（真机抓链路方案）与 C 线（映射逻辑 + 主机侧单测）并行 | ✅ 完成（真机执行仍阻塞） |
 | R3 | 授权闸与日志落盘（BG-022）+ L0 配置契约检查 | ✅ 完成 |
 | R4 | theos 打包骨架 + 三个脚本真实实现（BG-031/033），均带 `--dry-run` 且已自检 | ✅ 完成 |
-| R5 | 待定：**BG-032 编译链落点仍需你决策**；之后是 BG-030/031 的真机与真编译验证 | ⏳ 计划中 |
+| R5 | ObjC 层首次获得编译器检查（BG-035：最小 Foundation 桩 + `-fsyntax-only`） | ✅ 完成 |
+| R6 | 待定：**BG-032 编译链落点仍需你决策**；之后才是真 SDK 编译与链接验证 | ⏳ 计划中 |
 
 ## 任务板
 
@@ -32,6 +33,7 @@
 | BG-032 | 决定编译链落点（macOS+theos / Linux 补 SDK / 越狱机上编） | **todo（需用户决策）** | — | 见「阻塞项 3」 |
 | BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../Makefile)、[`control`](../control)、[`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
 | BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)（17/17 通过） |
+| BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`tests/objc-stub/`](../tests/objc-stub/)、[`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
 | BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
 
 ## 已确认环境事实（不要重复探测）
@@ -68,24 +70,64 @@
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R5）候选
+## 下一轮（R6）候选
 
-R4 已把编译与部署的**管道**修好（两条编译链、过滤器生成、授权闸前置、`--dry-run` 自检），
-但**没有在真实工具链上编译过一行**。R5 的可选项按价值排序：
+R5 让 ObjC 层第一次过了编译器（语法层面）。剩下的**只有真 SDK 才能做的**部分，以及一项决策：
 
-1. **[BG-032] 编译链落点决策（必须你定）** —— 三选一。这是**唯一卡住整个项目**的事项；
-   不定它，BG-031 无法完成，`hooks/*.m` 也无法得到任何编译验证。
-2. **ObjC 层的语法验证（风险最高，且不依赖真机）** —— `hooks/*.m` 至今没经过任何编译器。
-   可选：装 theos + iOS SDK 后 `clang -fsyntax-only`；或写一层最小 Foundation 桩
-   （`NSString`/`NSDictionary`/`NSJSONSerialization` 声明）在 Linux 上做语法检查。
-   后者不需要下载 SDK，是当前信息量最高的一步。
-3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约，解析行为仍靠人工复核。
-4. **`--respring` / `sbreload` 与日志抓取的真机验证** —— 需要设备。
+1. **[BG-032] 编译链落点决策（必须你定）** —— 三选一。这是**唯一卡住整个项目**的事项：
+   没有它就没有链接验证、没有产物、没有真机。
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。到那时才会暴露：缺 `-framework`、
+   私有 API 可用性、`install_name`、arm64e 切片等问题。
+3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约与语法检查，解析行为仍靠人工复核。
+4. **`--respring` / 日志抓取的真机验证** —— 需要设备。
 5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R5（2026-10-13）ObjC 层首次获得编译器检查
+
+**动因**：此前 `hooks/*.m` 是全项目**唯一零编译验证**的部分，也是风险最高的部分。
+本机没有 iOS SDK，但有 clang —— 于是写一层最小声明桩，让 `-fsyntax-only` 真正跑起来。
+
+**交付**
+
+| 文件 | 内容 |
+|---|---|
+| [`tests/objc-stub/Foundation/Foundation.h`](../tests/objc-stub/Foundation/Foundation.h) | 最小 Foundation 声明桩：`NSString`/`NSArray`/`NSDictionary`/`NSData`/`NSNumber`/`NSFileManager`/`NSBundle`/`NSJSONSerialization`/`NSError`/`NSLog`、快速枚举、轻量泛型、字面量所需的类方法 |
+| [`tests/objc-stub/os/lock.h`](../tests/objc-stub/os/lock.h) | `os_unfair_lock` 声明与 `OS_UNFAIR_LOCK_INIT`（Darwin 头，Linux 没有） |
+| [`tests/objc-stub/README.md`](../tests/objc-stub/README.md) | 桩的用途、**查不出来的东西**、维护原则 |
+| [`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh) | 检查器：5 个 `.m` + 7 个头文件自包含 + 5 条反向用例 |
+
+**验证证据**
+
+```
+$ tests/host/check-objc-syntax.sh
+  ok   BGGhostConfig.m / BGGhostCoreWLAN.m / BGGhostHotspot.m / BGGhostMap.m / Hooks.m
+  ok   7 个头文件「单独包含」全部通过
+  ok   反向：未声明的函数被查出
+  ok   反向：未知选择器被查出
+  ok   反向：格式串类型不匹配被查出
+  ok   反向：BGGhostLog 的格式串被检查
+  ok   反向：头文件单独包含这一路确实在编译
+结果：17 通过, 0 失败
+```
+
+**一个值得记的技术点**：桩里 `NS_FORMAT_FUNCTION` 最初被我定义成空宏，结果**我们自己的
+`BGGhostLog` 格式串完全没被检查**。改成真实的
+`__attribute__((format(__NSString__, a, b)))` 后，`BGGhostLog(@"%@", cString)` 这类错误
+才会在主机上被抓住 —— 这正是当初 `Hooks.h` 漏声明那类问题的同族。桩与真头文件的属性
+必须一致，否则会静默漏掉一整类检查（已写进 `tests/objc-stub/README.md` 的维护原则）。
+
+**R5 之后的事实边界（不要含糊）**
+
+| 已获得 | 仍未获得 |
+|---|---|
+| 语法、类型、隐式声明、未知选择器 | 方法在真实 iOS SDK 上是否存在 / 弃用 / 可用性标注 |
+| ARC 归属规则 | 链接期问题（`-framework`、符号、`install_name`、架构切片） |
+| 自己日志函数的格式串与实参类型 | 运行期行为（真实 `nil`、`NSJSONSerialization` 返回等） |
+| 头文件自包含 | 桩与真头文件签名差异导致的漏检 |
 
 ### R4（2026-10-13）theos 打包骨架 + 三个脚本真实实现
 

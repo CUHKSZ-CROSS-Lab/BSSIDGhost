@@ -33,6 +33,19 @@ echo
 echo "==> [L0] 脚本自检（--dry-run 正向 + 授权闸反向）"
 bash "${ROOT}/tests/host/check-scripts.sh"
 
+echo
+echo "==> [L0] ObjC 语法检查（tests/objc-stub 最小 Foundation 桩）"
+set +e
+bash "${ROOT}/tests/host/check-objc-syntax.sh"
+OBJC_STATUS=$?
+set -e
+if [[ "${OBJC_STATUS}" -eq 2 ]]; then
+    echo "!! 本机 clang 不支持所需 ObjC 特性，已跳过（ObjC 层仍无编译验证）" >&2
+elif [[ "${OBJC_STATUS}" -ne 0 ]]; then
+    echo "!! ObjC 语法检查未通过。" >&2
+    exit 1
+fi
+
 mkdir -p "${OUT_DIR}"
 
 # 测试目标格式：<可执行名>:<被测核心>:<测试文件>

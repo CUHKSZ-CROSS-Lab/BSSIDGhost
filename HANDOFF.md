@@ -88,7 +88,20 @@
   [`verify.sh`](./scripts/verify.sh)（只读，退出码 0/1/2）。
 - **脚本自检**：[`tests/host/check-scripts.sh`](./tests/host/check-scripts.sh) 17/17
   （10 条正向 dry-run + 7 条反向：授权闸、`<team>`、参数校验）。
-- **仍未做**：**没有在真实工具链上编译过一行**（BG-032 未决）。
+- **仍未做**：**没有用真实 iOS SDK 编译或链接过**（BG-032 未决）。
+
+**R5 已完成（2026-10-13，ObjC 层首次编译检查）**：
+
+- **最小 Foundation 桩**：[`tests/objc-stub/`](./tests/objc-stub/) 把 `hooks/` 用到的
+  Foundation 接口与 `os_unfair_lock` 声明出来，使本机 clang 能对 ObjC 源码做
+  `-fsyntax-only`（`-fobjc-arc -fobjc-runtime=ios-15.0 -Wall -Wextra -Werror`）。
+- **检查器**：[`tests/host/check-objc-syntax.sh`](./tests/host/check-objc-syntax.sh) 17/17 ——
+  5 个 `.m` + 7 个头文件自包含 + **5 条反向用例**（未声明函数 / 未知选择器 /
+  格式串类型不匹配 / 我们自己的 `BGGhostLog` 格式串 / 头文件那一路确实在编译）。
+- **现在能查出**：语法与类型错误、隐式函数声明、未知选择器、ARC 归属规则、
+  格式串与实参类型、头文件自包含。
+- **仍查不出**：方法在真实 iOS SDK 上是否存在/弃用/可用性、链接期问题
+  （`-framework`/符号/`install_name`/切片）、任何运行期行为。**仍需真 SDK 编译。**
 
 **⚠️ 需要你确认的命名细节**：theos 产物名固定为 `BSSIDGhost.dylib`（不带 `lib` 前缀），
 与 HANDOFF §2 记录的 `libbssidghost.dylib` 并存为「两条路线两个名字」。
@@ -138,18 +151,17 @@
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R5）
+## 7. 建议的下一步（R6）
 
-R2 的 B/C 线、R3 的策略层、R4 的编译/部署管道均已完成。**没有任何代码在真实工具链上编译过**，
-真机线仍被授权闸 + 设备 + 主机 frida 阻塞。R5 按价值排序：
+R2 的 B/C 线、R3 的策略层、R4 的编译/部署管道、R5 的 ObjC 编译期检查均已完成。
+**剩下的关键路径只有一条：真实工具链**。真机线仍被授权闸 + 设备 + 主机 frida 阻塞。
 
 1. **[BG-032] 编译链落点（必须你定）** —— 三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
    越狱机上用 Procursus 工具链。**这是唯一卡住整个项目的事项。**
-2. **ObjC 层的语法验证（不依赖真机、风险最高）** —— `hooks/*.m` 至今没经过任何编译器。
-   可选：装 theos + iOS SDK 后 `clang -fsyntax-only`，或写一层最小 Foundation 桩在 Linux 上做语法检查
-   （不需要下载 SDK，信息量最高）。
-3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约，解析行为靠人工复核。
-4. **[BG-031] 真编译验证** —— 依赖 1。
+2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。届时会暴露：缺 `-framework`、
+   私有 API 可用性（CoreWLAN 是否需 `dlopen`）、`install_name`、arm64e 切片等问题。
+3. **把 JSON → 结构体的解析纳入 L1** —— 目前只有 L0 键名契约 + 语法检查，解析行为靠人工复核。
+4. **`--respring` / 日志抓取的真机验证** —— 需要设备。
 5. **范围收窄评估** —— 若 BG-011 结论是「只走 nehelper XPC」，Hook 点需改为 XPC 边界。
 
 > 解锁真机线需要你补齐：授权字段、设备就位、编译链落点，以及**同意安装 frida**；
