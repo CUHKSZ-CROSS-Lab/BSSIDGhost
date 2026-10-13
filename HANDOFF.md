@@ -40,13 +40,15 @@
 > **进度真源已迁移到 [`docs/STATUS.md`](./docs/STATUS.md)**（任务板 `BG-xxx` + 轮次记录 + 环境事实 + 阻塞项）。
 > 本文件保留交接语义：定义、已定决策、风险、下一步。**每轮结束两个文件都要更新。**
 
-目录结构见 [`README.md`](./README.md)。原始骨架 16 个文件：
+目录结构见 [`README.md`](./README.md)。原始骨架 16 个文件（其中链路图后来被移除）：
 - `README.md`、`docs/tech-chain.md`、`docs/naming.md`
 - `config/bssid_map.json`、`config/targets.json`
 - `hooks/`：`Hooks.h/.m`、`BGGhostCoreWLAN.h/.m`、`BGGhostHotspot.h/.m`
 - `scripts/`：`build.sh`、`deploy.sh`、`verify.sh`（均已 `bash -n` 通过、已加可执行位）
 - `tests/README.md`（测试矩阵 T1–T10）
-- `技术链路流程图.jpeg`（原始链路图，未改动）
+- ~~`技术链路流程图.jpeg`（原始链路图）~~ → **已按用户要求移除**；
+  历史版本仍在，取回：`git show b9f00cd:技术链路流程图.jpeg > 技术链路流程图.jpeg`
+  （blob `137be914981ad29392b5b719aed446a67aa108c8`，105513 字节）
 
 **尚未实现**：所有 Hook 逻辑、映射表读取、日志落盘、编译接入。
 所有占位处均以 `TODO` / `⚠️ 占位实现` 标注。
