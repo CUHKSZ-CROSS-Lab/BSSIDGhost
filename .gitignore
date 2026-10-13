@@ -1,0 +1,21 @@
+# 构建产物
+/build/
+*.dylib
+*.deb
+*.o
+*.dSYM/
+
+# 日志与大体量证据
+*.log
+tests/evidence/**/*.pcap
+tests/evidence/**/*.har
+
+# 签名/凭据等本地私密文件
+*.mobileprovision
+*.p12
+*.cer
+config/local.*.json
+
+# 编辑器与系统
+.DS_Store
+*.swp

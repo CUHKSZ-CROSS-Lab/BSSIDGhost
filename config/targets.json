@@ -1,0 +1,24 @@
+{
+  "_comment": "目标 App 作用域与测试授权记录。fill_me 字段未填齐前不要启用 Hook。",
+  "scope": {
+    "mode": "allowlist",
+    "_comment": "allowlist = 仅列出的 BundleID 生效；all = 所有进程生效（不推荐）",
+    "bundle_ids": [
+      "com.ss.iphone.ugc.Lark"
+    ]
+  },
+  "authorization": {
+    "_comment": "使用前必须登记：证明对目标 App 有测试授权、且使用受控测试设备与网络",
+    "target_app_owner": "fill_me",
+    "authorized_by": "fill_me",
+    "authorization_ref": "fill_me",
+    "purpose": "fill_me",
+    "test_device": "fill_me",
+    "test_ap": "fill_me"
+  },
+  "constraints": {
+    "only_test_devices": true,
+    "only_test_network": true,
+    "no_production_targets": true
+  }
+}
