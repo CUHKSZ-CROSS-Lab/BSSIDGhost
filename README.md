@@ -34,7 +34,9 @@ bash scripts/bootstrap.sh
 飞书接收到修改后的信息
 ```
 
-原始链路图见 [`技术链路流程图.jpeg`](./技术链路流程图.jpeg)。
+原始链路图曾以 `技术链路流程图.jpeg` 形式入库，**现已移除**；六个环节的拆解与 Hook 点调研见
+[`docs/tech-chain.md`](./docs/tech-chain.md)。
+需要原图时从历史取回：`git show b9f00cd:技术链路流程图.jpeg > 技术链路流程图.jpeg`。
 
 ## 边界（非常重要，先读这段）
 
