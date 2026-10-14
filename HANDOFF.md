@@ -13,6 +13,9 @@ bash scripts/bootstrap.sh
 完整恢复指南见 [`RESUME.md`](./RESUME.md)（含**换到 macOS 后的专门说明**）。
 同步到远端：`bash scripts/publish.sh --dry-run` 看计划，去掉 `--dry-run` 执行。
 
+**下一轮要谈的是设备选型与越狱**（用户手上 iPhone 12 / A14 / iOS 26 落在可越狱范围之外）：
+见 [`docs/handoff-device-jailbreak.md`](./docs/handoff-device-jailbreak.md) —— 新会话请先读它。
+
 ## 1. 项目定义（已确认）
 
 **BSSIDGhost**（中文：幻影 BSSID）

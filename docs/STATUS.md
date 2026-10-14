@@ -16,7 +16,8 @@
 | R7 | 映射模拟器（BG-038）+ nehelper 可证伪实验设计（BG-039） | ✅ 完成 |
 | R8 | 交接方案（BG-040：RESUME/bootstrap/publish）+ 修复换 Mac 后的 ObjC 假通过风险 | ✅ 完成 |
 | R9 | **BG-032 决策落地：选定方案 C（设备端 Procursus 工具链）** + 设备准备 SOP（BG-043） | ✅ 完成 |
-| R10 | 真机执行：按 [设备准备 SOP](ondevice-build-setup.md) 越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⏳ 待用户执行 |
+| R10 | 设备选型与越狱（**新会话专谈**）：用户 iPhone 12 / A14 / iOS 26 落在缺口里 | ⏳ 待用户执行 |
+| R11 | 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⏳ 阻塞于 R10 |
 
 ## 任务板
 
@@ -41,6 +42,7 @@
 | BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh)、[`tests/host/gate_sim.c`](../tests/host/gate_sim.c)（自检 6/6） |
 | BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
 | BG-043 | 设备端编译/验证环境搭建 SOP（Dopamine 安装 + Procursus 工具链 + SDK 上机 + 编译验证闭环） | **done** | BG-032 | [`docs/ondevice-build-setup.md`](ondevice-build-setup.md) |
+| BG-044 | 设备选型与越狱交接（支持矩阵核实 + 降级可行性分析 + 路线对比） | **done** | — | [`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md) |
 | BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`tests/host/map-sim.sh`](../tests/host/map-sim.sh)、[`tests/host/map_sim.c`](../tests/host/map_sim.c)（自检 8/8） |
 | BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/tech-chain.md`](tech-chain.md) §2.2、[`tests/frida/README.md`](../tests/frida/README.md) |
 | BG-040 | 交接方案：环境自检 / 5 分钟恢复指南 / 推送与 PR 脚本 | **done** | — | [`RESUME.md`](../RESUME.md)、[`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/publish.sh`](../scripts/publish.sh) |
@@ -82,10 +84,21 @@
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R10）：真机执行（由用户驱动）
+## 下一轮（R10）：设备选型与越狱（**新开会话专谈**）
 
-主机侧与决策都没问题了，**剩下的是在设备上跑一遍**。步骤全部在
-[`docs/ondevice-build-setup.md`](ondevice-build-setup.md)，按顺序：
+⚠️ **用户提供了新事实，改变了前提**：设备是 **iPhone 12（A14）/ iOS 26**，原计划"刷机降级"。
+本轮核实后确认**它落在可越狱范围之外，且降级不可行**：
+
+- Dopamine 对 **A14–A17 的上限是 iOS 17.3.1**；iOS 26 只覆盖 **A12/A13**；
+- palera1n 官方文档明确 "**arm64e devices will NEVER be supported**"（iPhone 12 是 arm64e）；
+- 降级需要 blobs + **能在当前系统设 APNonce 的漏洞** + 兼容的签名 SEP，A14 + iOS 26 三者都不具备。
+
+完整依据、路线对比（换 A12/A13 机 / 换低版本 A14 机 / 买便宜 A11 机走 palera1n）与待确认清单：
+[`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md)。
+
+## 之后（R11）：真机执行（由用户驱动）
+
+设备定下来之后的步骤在 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md)：
 
 1. **越狱装机**（用户）：确认机型与 iOS 版本 → Dopamine（rootless）→ Sileo 里装 ElleKit、Preloader。
 2. **装工具链**（设备上）：`clang-16`、`ld64`、`ldid`、`dpkg`、`make`（详见 SOP §3）。

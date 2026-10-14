@@ -29,6 +29,10 @@
 
 ## 1. 该准备哪台机器、哪个 iOS 版本
 
+> ⚠️ **先看设备选型**：如果你的机器是 **A14–A17 且系统在 18/26**，Dopamine 不支持、palera1n 更是永久排除 arm64e。
+> 已经确认用户手上的 **iPhone 12（A14 / iOS 26）落在缺口里**，选机与降级可行性分析见
+> [`handoff-device-jailbreak.md`](handoff-device-jailbreak.md)。**先定设备，再谈本节。**
+
 ### 1.1 Dopamine 官方支持矩阵
 
 来源：<https://ellekit.space/dopamine/>（官方站点，2026 核实）
