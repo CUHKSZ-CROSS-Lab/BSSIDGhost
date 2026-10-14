@@ -16,8 +16,29 @@
 | R7 | 映射模拟器（BG-038）+ nehelper 可证伪实验设计（BG-039） | ✅ 完成 |
 | R8 | 交接方案（BG-040：RESUME/bootstrap/publish）+ 修复换 Mac 后的 ObjC 假通过风险 | ✅ 完成 |
 | R9 | **BG-032 决策落地：选定方案 C（设备端 Procursus 工具链）** + 设备准备 SOP（BG-043） | ✅ 完成 |
-| R10 | 设备选型与越狱（**新会话专谈**）：用户 iPhone 12 / A14 / iOS 26 落在缺口里 | ⏳ 待用户执行 |
-| R11 | 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⏳ 阻塞于 R10 |
+| R10 | 设备选型与越狱：用户 iPhone 12 / A14 / iOS 26 落在可越狱缺口里 | ⛔ 关闭（结论已留档，路线作废） |
+| R11 | iOS 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ▶️ 重新激活（见 R14） |
+| R12 | 转向 Android：ADR 留档 + 冻结 iOS + 单仓双端重构 + 修两个真实缺陷 | ✅ 完成（**主线判断已被 R14 取代**） |
+| R13 | 语言中立测试向量落地（`shared/vectors/`）+ 日志路径按平台取值 | ✅ 完成（**跨端资产，继续有效**） |
+| **R14** | **主线切回 iOS：ADR-0002 + 修正越狱结论 + iPhone 8 设备规格与验机清单；Android 暂停冻结** | ✅ 完成 |
+| **R15** | **iOS 真机执行：买机（≤16.6.1）→ Dopamine 越狱 → 设备端编译 → 装 deb → 跑 T1–T10** | ⏳ **阻塞于测试机** |
+| R16 | （原 iOS）Frida 抓栈确认 Wi-Fi 信息通道（BG-011）→ Hook 框架选型（BG-030） | ⏳ 阻塞于 R15 |
+
+> ## 主线：**iOS**（R14 起）
+> 目标机型 **iPhone 8（A11）**，越狱工具 **Dopamine**，iOS **优先 ≤16.6.1**。
+> 采购规格、TrollStore 边界与验机命令见 [`docs/ios/device-spec.md`](ios/device-spec.md)；
+> 决策留档见 [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md)。
+>
+> **Android 已暂停冻结但完整保留**（[`android/README.md`](../android/README.md)）。
+> 冻结时它的路线图停在 R14–R16，那些任务号**不再占用 `R` 编号**，见任务板末尾的「冻结中」。
+
+### 本轮最大的教训（值得单独记一笔）
+
+R10 那轮用「palera1n 明确排除 arm64e」把 **iPhone 8 / 8 Plus / X 一并否定**——
+**这个推论是错的**（那些机型本身就是 arm64e，而 palera1n 官方机型表里明确列着它们）。
+错误的根源是把一句概括性描述外推到整类机型，而没有回到官方**支持设备列表**核对。
+结果差点在 R12 白白转向 Android。修正与技术细节见
+[`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) §2.1。
 
 ## 任务板
 
@@ -26,28 +47,42 @@
 | BG-001 | 建立 git 仓库与 `.gitignore` | done | — | [`.gitignore`](../.gitignore) |
 | BG-002 | 建立 STATUS/HANDOFF 轮次节奏（单一进度真源） | done | BG-001 | 本文件、[`HANDOFF.md`](../HANDOFF.md) |
 | BG-010 | 确认测试机越狱类型与 iOS 版本 | done | — | 见「已确认环境事实」 |
-| BG-011 | 真机 Frida 抓取 Wi-Fi 信息接口真实调用栈 | **blocked** | 授权闸、设备、主机装 frida | 工具已就绪：[`tests/frida/`](../tests/frida/)、[`docs/device-setup.md`](device-setup.md) |
-| BG-012 | 确认返回形态与格式（NSString / NSData / 结构体） | blocked | BG-011 | — |
-| BG-013 | 枚举交叉校验通道（多接口 / 公网出口 IP / mDNS / ARP） | blocked | BG-011 | — |
-| BG-020 | 实现 `BGGhostMapBSSID()` 映射逻辑（含 nil 语义与格式一致性） | **done** | — | [`hooks/BGGhostRules.c`](../hooks/BGGhostRules.c)、[`hooks/BGGhostMap.m`](../hooks/BGGhostMap.m) |
-| BG-021 | 主机侧可跑单测（不依赖真机） | **done** | BG-020 | [`tests/host/run.sh`](../tests/host/run.sh)（L0 + 92 条断言全通过） |
-| BG-022 | 映射表读取 / 日志落盘 / 授权闸的配置读取实现 | **done** | — | [`hooks/BGGhostAuth.c`](../hooks/BGGhostAuth.c)、[`hooks/BGGhostConfig.m`](../hooks/BGGhostConfig.m)、日志落盘在 [`hooks/Hooks.m`](../hooks/Hooks.m) |
-| BG-023 | L0 配置契约检查（JSON ↔ C 键名/容量/格式） | **done** | — | [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh)（含 3 组反向用例验证） |
-| BG-030 | 选定 Hook 框架并跑通最小 PoC | blocked | BG-011、设备 | — |
-| BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现 | **doing** | BG-032（真编译验证） | 三条命令已实现并自检（`--dry-run`）：[`scripts/`](../scripts/)、[`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)；**待真实工具链验证** |
-| BG-032 | 决定编译链落点 | **done（= C，用户 2026-10-13 选定）** | — | 决策说明见 [`docs/build-chain-options.md`](build-chain-options.md)；执行 SOP 见 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md) |
-| BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../Makefile)、[`control`](../control)、[`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
-| BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)（17/17 通过） |
-| BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`tests/objc-stub/`](../tests/objc-stub/)、[`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
-| BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh)、[`tests/host/gate_sim.c`](../tests/host/gate_sim.c)（自检 6/6） |
-| BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
-| BG-043 | 设备端编译/验证环境搭建 SOP（Dopamine 安装 + Procursus 工具链 + SDK 上机 + 编译验证闭环） | **done** | BG-032 | [`docs/ondevice-build-setup.md`](ondevice-build-setup.md) |
-| BG-044 | 设备选型与越狱交接（支持矩阵核实 + 降级可行性分析 + 路线对比） | **done** | — | [`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md) |
-| BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`tests/host/map-sim.sh`](../tests/host/map-sim.sh)、[`tests/host/map_sim.c`](../tests/host/map_sim.c)（自检 8/8） |
-| BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/tech-chain.md`](tech-chain.md) §2.2、[`tests/frida/README.md`](../tests/frida/README.md) |
+| BG-011 | 真机 Frida 抓取 Wi-Fi 信息接口真实调用栈（iOS） | **frozen** | 授权闸、设备、主机装 frida | 工具已就绪：[`ios/tests/frida/`](../ios/tests/frida/)、[`docs/ios/device-setup.md`](ios/device-setup.md) |
+| BG-012 | 确认返回形态与格式（NSString / NSData / 结构体）（iOS） | frozen | BG-011 | — |
+| BG-013 | 枚举交叉校验通道（多接口 / 公网出口 IP / mDNS / ARP）（iOS） | frozen | BG-011 | — |
+| BG-020 | 实现 `BGGhostMapBSSID()` 映射逻辑（含 nil 语义与格式一致性） | **done** | — | [`ios/hooks/BGGhostRules.c`](../ios/hooks/BGGhostRules.c)、[`ios/hooks/BGGhostMap.m`](../ios/hooks/BGGhostMap.m) |
+| BG-021 | 主机侧可跑单测（不依赖真机） | **done** | BG-020 | [`ios/tests/host/run.sh`](../ios/tests/host/run.sh)（L0 + 92 条断言全通过） |
+| BG-022 | 映射表读取 / 日志落盘 / 授权闸的配置读取实现 | **done** | — | [`ios/hooks/BGGhostAuth.c`](../ios/hooks/BGGhostAuth.c)、[`ios/hooks/BGGhostConfig.m`](../ios/hooks/BGGhostConfig.m)、日志落盘在 [`ios/hooks/Hooks.m`](../ios/hooks/Hooks.m) |
+| BG-023 | L0 配置契约检查（JSON ↔ C 键名/容量/格式） | **done** | — | [`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh)（含 3 组反向用例验证） |
+| BG-030 | 选定 Hook 框架并跑通最小 PoC（iOS） | frozen | BG-011 | — |
+| BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现（iOS） | **frozen** | BG-032（真编译验证） | 三条命令已实现并自检（`--dry-run`）：[`scripts/`](../ios/scripts/)、[`ios/tests/host/check-scripts.sh`](../ios/tests/host/check-scripts.sh)；**待真实工具链验证** |
+| BG-032 | 决定编译链落点 | **done（= C，用户 2026-10-13 选定）** | — | 决策说明见 [`docs/ios/build-chain-options.md`](ios/build-chain-options.md)；执行 SOP 见 [`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md) |
+| BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../ios/Makefile)、[`control`](../ios/control)、[`ios/layout/…/BSSIDGhost.plist`](../ios/layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
+| BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`ios/tests/host/check-scripts.sh`](../ios/tests/host/check-scripts.sh)（17/17 通过） |
+| BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`ios/tests/objc-stub/`](../ios/tests/objc-stub/)、[`ios/tests/host/check-objc-syntax.sh`](../ios/tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
+| BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`ios/tests/host/gate-sim.sh`](../ios/tests/host/gate-sim.sh)、[`ios/tests/host/gate_sim.c`](../ios/tests/host/gate_sim.c)（自检 6/6） |
+| BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/ios/build-chain-options.md`](ios/build-chain-options.md) |
+| BG-043 | 设备端编译/验证环境搭建 SOP（Dopamine 安装 + Procursus 工具链 + SDK 上机 + 编译验证闭环） | **done** | BG-032 | [`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md) |
+| BG-044 | 设备选型与越狱交接（支持矩阵核实 + 降级可行性分析 + 路线对比） | **done** | — | [`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) |
+| BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`ios/tests/host/map-sim.sh`](../ios/tests/host/map-sim.sh)、[`ios/tests/host/map_sim.c`](../ios/tests/host/map_sim.c)（自检 8/8） |
+| BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/ios/tech-chain.md`](ios/tech-chain.md) §2.2、[`ios/tests/frida/README.md`](../ios/tests/frida/README.md) |
 | BG-040 | 交接方案：环境自检 / 5 分钟恢复指南 / 推送与 PR 脚本 | **done** | — | [`RESUME.md`](../RESUME.md)、[`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/publish.sh`](../scripts/publish.sh) |
-| BG-041 | 修复「换到 macOS 后 ObjC 检查假通过」风险（桩与真 SDK 二选一 + 反向用例） | **done** | — | [`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（18/18，含假 SDK 反向用例） |
-| BG-040 | 测试矩阵 T1–T10 执行与取证 | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
+| BG-041 | 修复「换到 macOS 后 ObjC 检查假通过」风险（桩与真 SDK 二选一 + 反向用例） | **done** | — | [`ios/tests/host/check-objc-syntax.sh`](../ios/tests/host/check-objc-syntax.sh)（18/18，含假 SDK 反向用例） |
+| BG-045 | 测试矩阵 T1–T10 执行与取证（**R12 由 BG-040 改号**：原先一号两用，见轮次记录） | blocked | BG-030、授权闸 | [`tests/README.md`](../tests/README.md)（T5/T7 逻辑部分已由 L1 覆盖） |
+| BG-050 | 转向 Android：ADR 留档 + 冻结 iOS（tag `ios-r11-host-verified`）+ 单仓双端目录重构 | **done** | — | [`docs/adr/0001-pivot-to-android.md`](adr/0001-pivot-to-android.md)、[`ios/README.md`](../ios/README.md)、[`android/README.md`](../android/README.md)、[`shared/README.md`](../shared/README.md) |
+| BG-051 | 修复两个真实缺陷：`bootstrap.sh` 过期关键路径提示、任务板 BG-040 重号；并加装文档链接检查器守住重构 | **done** | BG-050 | [`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/check-links.sh`](../scripts/check-links.sh)（203 条内部链接全通过） |
+| BG-052 | Android 测试机采购规格与验机清单（机型/版本/root/命令，逐条附来源与性质） | **done** | — | [`docs/android-device-spec.md`](android-device-spec.md) |
+| BG-053 | 语言中立测试向量：把 C 断言抽成 `shared/vectors/` 数据，两端同跑（**110 条向量断言**）（跨端资产，继续有效） | **done** | BG-050 | [`shared/vectors/`](../shared/vectors/README.md)、[`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh)、[`vector_rules.c`](../ios/tests/host/vector_rules.c)、[`vector_auth.c`](../ios/tests/host/vector_auth.c) |
+| BG-054 | Android Java 核心（映射 + 授权闸）移植 + 主机单测（JVM 直接跑） | frozen | BG-053 | — |
+| BG-055 | Android 本机构建链脚本（`javac` + `d8/R8` + `aapt2` + `apksig`）+ 骨架 APK | frozen | BG-050 | R12 已手工实测整链可行（见轮次记录） |
+| BG-056 | Android 版 Frida 只读抓栈（确认飞书实际走的 Wi-Fi 信息通道） | frozen | BG-052（设备到位） | — |
+| BG-057 | LSPosed 模块实现（Vector + legacy API 82）+ 部署脚本 + 端到端 T1–T10 | frozen | BG-054、BG-055、BG-056 | — |
+| BG-059 | **主线切回 iOS：ADR-0002 + Android 冻结标记 + 修正被推翻的越狱结论** | **done** | — | [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md)、[`android/README.md`](../android/README.md) |
+| BG-060 | **iPhone 8 设备规格与验机清单**（Dopamine 选型 + TrollStore 边界 + 版本硬约束） | **done** | — | [`docs/ios/device-spec.md`](ios/device-spec.md) |
+| BG-062 | **修 R12 遗留缺陷**：`scripts/publish.sh` 的 source 目标在重构后已断（一跑就炸），
+并把跨端 helper 拆回 `scripts/lib/`；新增 `scripts/check-shell.sh` 守住这类问题 | **done** | BG-059 | [`scripts/lib/common.sh`](../scripts/lib/common.sh)、[`scripts/check-shell.sh`](../scripts/check-shell.sh)（含故障注入验证） |
+| BG-061 | **核实并修正 iOS 目标 BundleID**：配置里是 `com.ss.iphone.ugc.Lark`，而 App Store 显示飞书为 `com.bytedance.ee.lark` | **todo** | 真机确认 | 证据见 [`device-spec.md`](ios/device-spec.md) §5；**过滤器写错会导致插件静默不注入** |
+| BG-058 | 日志路径按平台取值（`log.path` → `log.paths.{ios,android}`）+ 契约检查与反向验证 | **done** | BG-053 | [`shared/config/bssid_map.json`](../shared/config/bssid_map.json)、[`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) |
 
 ## 已确认环境事实（不要重复探测）
 
@@ -55,12 +90,22 @@
 
 | 项 | 结论 | 来源 |
 |---|---|---|
+| **当前主线** | **iOS**（[ADR-0002](adr/0002-return-to-ios.md)，R14 起；R12–R13 曾短暂以 Android 为主线） | 用户决策 |
+| **目标设备** | **iPhone 8（A11）**，固件上限 **16.7.16**（Apple 至今仍在签名）；**优先买 ≤16.6.1** | [设备规格](ios/device-spec.md) |
+| **越狱工具** | **Dopamine**（rootless，semi-untethered，自带 Sileo/ElleKit）；palera1n 为备选 | 同上 |
+| **目标 App（iOS）** | 飞书，App Store 显示 **`com.bytedance.ee.lark`**（⚠️ 与配置不符，见 BG-061）；最低 iOS 13.0 | Apple lookup API |
+| **目标 App** | 国内版飞书 **`com.ss.android.lark`**（小米应用商店在架 **8.2.6**，2026-10-13 更新） | [设备规格](android-device-spec.md) §6 |
+| 目标设备（Android，已冻结） | 二手 Google Pixel 8 / 8a，固定 Android 15（API 35） | 用户 R12 选定，随冻结挂起 |
+| **注入路线** | 先 Frida 只读抓栈，再落 **LSPosed 模块** | 用户 2026-10-14 选定 |
+| **Hook 框架** | **Vector v2.2** + legacy XposedBridge **API 82**（官方 LSPosed 停在 v1.9.2，只到 Android 14） | [ADR-0001](adr/0001-pivot-to-android.md) §5 |
+| **Android 编译链** | **本机命令行**：`javac` + `d8/R8` + `aapt2` + `apksig`（镜像取件，无需 Android Studio） | R12 端到端实测 |
+| **行为规格真源** | [`shared/vectors/`](../shared/vectors/README.md)：110 条语言中立断言，**两端必须同结论**（改行为先改向量） | R13 落地 |
+| 授权状态 | 未登记（`fill_me`），全部闸门关闭（**两端共用同一套闸门**） | [`shared/config/targets.json`](../shared/config/targets.json) |
+| —— 以下为 iOS 冻结存档（不再推进）—— | | |
 | 测试机越狱 | Dopamine / rootless | 用户（R1） |
 | 目标 iOS | 15.0–16.6.x | 用户（R1） |
 | 注入路径前缀 | `/var/jb`（`/var/jb/usr/lib`、`/var/jb/Library/MobileSubstrate/DynamicLibraries`） | 由 rootless 推导 |
-| 授权状态 | 未登记（`fill_me`），全部闸门关闭 | [`config/targets.json`](../config/targets.json) |
-| Hook 框架 | 未选定，待 BG-011 结论 | 待办 |
-| 编译链 | **方案 C：越狱设备上用 Procursus 工具链就地编译**（用户 2026-10-13 选定） | ✅ 已定 |
+| iOS 编译链 | 方案 C：越狱设备上用 Procursus 工具链就地编译（用户 2026-10-13 选定） | 已定，随 iOS 冻存 |
 
 ### 本机（Linux）能力审计
 
@@ -73,59 +118,358 @@
 | theos / iPhoneOS SDK / `ldid` / `dpkg-deb` | ❌ 全无；`clang 22` 支持 arm64 目标但**无 SDK，无法在本机交叉编译** |
 | 网络 | ⚠️ `registry.npmjs.org` **不可达**（DNS 仅 IPv6、连接超时）；`registry.npmmirror.com` 200；`github.com` 200 |
 
+### Android 构建链（R12 **端到端实测**，不要再重复探测）
+
+| 环节 | 工具 | 本机实测结果 |
+|---|---|---|
+| 编译 | `android.jar`（API 26–37，GitHub raw 镜像） | ✅ 27.7 MB 下载成功；对**真实 API** 编译通过 |
+| 资源 / manifest | `aapt2` 9.4.1（阿里云 Google Maven） | ✅ 二进制在本机可执行（`aapt2 2.20-15978811`） |
+| dex 化 | `d8`（R8 9.5.26） | ✅ 生成 `classes.dex` |
+| 签名 | `apksig`（阿里云 Google Maven） | ✅ 打出签名 APK，**验证 `verified = true`**（v3 方案） |
+| 模块 API | legacy `api:82` / `libxposed api:102.0.0` | ✅ 模块骨架编译通过（含 `WifiInfo.getBSSID` hook） |
+| 部署 | `android-tools 37.0.0` + `android-udev`（Arch `extra` 官方源） | ✅ 可装（adb / fastboot） |
+| 抓栈 | `frida-server 17.23.3 android-arm64`（GitHub Releases） | ✅ 可取，与 npm `frida@17.23.3` **版本匹配** |
+| 模拟器 | — | ❌ 本机无 `/dev/kvm`，**跑不了模拟器** → 真机不可替代 |
+| 网络 | `dl.google.com` / `repo1.maven.org` | ❌ 不可达（IPv6-only，与 npmjs 同症状）→ **必须走镜像** |
+
 ## 阻塞项（需要用户输入）
 
-1. **授权闸** —— `config/targets.json` 的 6 个授权字段仍为 `fill_me`。按 R1 决策先按未授权处理；
-   真机任务（BG-011/012/013/030/031/040）全部 blocked。**助手不代填授权字段**，只在用户提供具体值后写入。
-2. **设备就位** —— 当前无 iOS 设备连接，`idevice_id -l` 失败。
-3. ~~编译链落点（BG-032）~~ → **已解决（2026-10-13）：用户选定方案 C（设备端 Procursus 工具链）**。
-   准备步骤见 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md)；
-   决策对比留档在 [`docs/build-chain-options.md`](build-chain-options.md)。
-4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
-   （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
+1. **授权闸** —— `shared/config/targets.json` 的 6 个授权字段仍为 `fill_me`。
+   未填齐时 build / deploy / Hook 一律拒绝执行。**助手不代填授权字段**，只在用户给出具体值后写入。
+2. **iPhone 8 未到位（当前唯一硬阻塞）** —— 采购规格、版本硬约束与验机命令见
+   [`docs/ios/device-spec.md`](ios/device-spec.md)。关键约束：**优先买已在 ≤16.6.1 的机器**
+   （才能用 TrollStore 免每 7 天重签），而 **Apple 只签 16.7.16，退不回去**。
+   阻塞范围：R15 全部真机任务（越狱 → 设备端编译 → 装包 → T1–T10 → BG-011 抓栈）。
+3. **BG-061：iOS 目标 BundleID 待真机确认** —— 配置里是 `com.ss.iphone.ugc.Lark`，
+   而 App Store 元数据显示飞书是 `com.bytedance.ee.lark`。
+   **在确认之前不要打包**：过滤器写错 BundleID 的插件不会注入，而且**不报错**（静默失效）。
+4. **主机缺 frida 执行工具** —— 无 CLI、Python 无 `pip`；npm `frida@17.23.3` 走 npmmirror 可行。
+   **BG-011 抓栈前需要一次性安装许可。**
+5. ~~编译链落点（BG-032）~~ → 已定方案 C；~~iOS 设备不可得~~ → **已被 R14 推翻**（iPhone 8 可行）。
+   Android 侧阻塞随冻结挂起。
 
-## 下一轮（R10）：设备选型与越狱（**新开会话专谈**）
+## 下一轮（R15）：iOS 真机执行（**由设备驱动**）
 
-⚠️ **用户提供了新事实，改变了前提**：设备是 **iPhone 12（A14）/ iOS 26**，原计划"刷机降级"。
-本轮核实后确认**它落在可越狱范围之外，且降级不可行**：
+R14 之后，**iOS 侧所有能脱离设备做的事都已做完**：
+主机侧 251 项断言全绿、文档与结论已校正、设备规格与验机清单就绪。
+**下一步必须等机器。**
 
-- Dopamine 对 **A14–A17 的上限是 iOS 17.3.1**；iOS 26 只覆盖 **A12/A13**；
-- palera1n 官方文档明确 "**arm64e devices will NEVER be supported**"（iPhone 12 是 arm64e）；
-- 降级需要 blobs + **能在当前系统设 APNonce 的漏洞** + 兼容的签名 SEP，A14 + iOS 26 三者都不具备。
+用户选定**不安装**本机 theos/SDK/ldid，因此真编译走 R9 已定的
+**方案 C（设备端 Procursus 工具链）**，与真机任务合并进行。
 
-完整依据、路线对比（换 A12/A13 机 / 换低版本 A14 机 / 买便宜 A11 机走 palera1n）与待确认清单：
-[`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md)。
+执行顺序（详见 [`docs/ios/device-spec.md`](ios/device-spec.md) 与
+[`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md)）：
 
-## 之后（R11）：真机执行（由用户驱动）
+1. **采购**（用户）：iPhone 8 / 8 Plus，**优先已在 ≤16.6.1**（可用 TrollStore）；
+   验机第一项就是版本，其次激活锁；
+2. **越狱**（用户）：Dopamine（rootless）→ Sileo 装 ElleKit + PreferenceLoader；
+   ≤16.6.1 再装 TrollStore 免重签；
+3. **设备端工具链**：`clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk`；
+4. **顺手确认 BG-061**：设备上确认真实 BundleID，修正 `scope.bundle_ids`
+   （**在此之前不要打包**——写错 BundleID 的插件不会注入且不报错）；
+5. **编译**：`bash ios/scripts/build.sh --toolchain theos`（⚠️ 会先过授权闸，
+   `shared/config/targets.json` 仍是 `fill_me` 时会拒绝构建）；
+6. **装包并跑 T1–T10** + BG-011 Frida 抓栈（App 与 nehelper 两步 attach）。
 
-设备定下来之后的步骤在 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md)：
-
-1. **越狱装机**（用户）：确认机型与 iOS 版本 → Dopamine（rootless）→ Sileo 里装 ElleKit、Preloader。
-2. **装工具链**（设备上）：`clang-16`、`ld64`、`ldid`、`dpkg`、`make`（详见 SOP §3）。
-3. **SDK 上机**：sparse checkout `iPhoneOS16.5.sdk`（≈201 MB）。
-4. **编译**：`bash scripts/build.sh --toolchain theos`（推荐）或直接 clang。
-   ⚠️ `build.sh` 会先过**授权闸**，`config/targets.json` 仍是 `fill_me` 时会拒绝构建。
-5. **装包并验证**：`dpkg -i packages/*.deb` → 冷启动目标 App → 看
-   `/var/mobile/Library/Logs/BSSIDGhost/ghost.log` → 跑 T1–T10。
-6. **（可选）抓栈验证 nehelper 假设**：按 [`tech-chain.md`](tech-chain.md) §2.2 的**两步 attach**。
-
-**我可以在你装机时并行做的事**（等你的真机输出）：
-- 命名决策（theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`，见 [`naming.md`](naming.md#项目标识)）；
-- `verify.sh` 设备侧检查细化（等真实日志格式确定后再做更稳）；
-- 把首次设备端编译的报错回写 SOP 的「常见坑」。
-
-> 需要你提供的信息（我无法自行探测）：**机型 + 当前 iOS 版本**（决定越狱路线与可选区间）、
-> 以及**是否已填 `config/targets.json` 授权字段**。
+> **仍需用户提供**：授权字段（6 项，助手不代填）、一台 iPhone 8（≤16.6.1 优先）、
+> 以及 frida 的一次性安装许可。
 
 ## 轮次记录
 
 > 最新轮次在最前。
 
+### R14（2026-10-14）主线切回 iOS：修正被推翻的越狱结论 + iPhone 8 设备规格
+
+**用户决策**：采购 iPhone 8；**暂时冻结 Android**；继续推进 iOS。
+
+**一、本轮最重要的事：纠正项目自己的一个错误结论**
+
+[`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) 原稿写：
+
+> palera1n「arm64（**arm64e 明确排除**）；设备仅到 A11 及以下（iPhone 8/8 Plus/X…）」
+
+**这句话自相矛盾**（iPhone 8/8 Plus/X 本身就是 arm64e），并且因此把 iPhone 8/X 一并否定。
+第一手核对 palera1n man page 后确认：
+
+```
+jailbreaks an arm64 (arm64e excluded) … utilizing the checkm8 bootROM exploit.
+On A11 devices, that is, iPhone 8, iPhone 8 Plus and iPhone X, the passcode cannot be used.
+.Sh SUPPORTED DEVICES
+.It iPhone 8
+.It iPhone 8 Plus
+.It iPhone X
+…
+arm64e devices will NEVER be supported.
+```
+
+判别依据：**不会给不支持的设备写专门一节**。palera1n 文档措辞不严谨——把 A8–A11 叫 "arm64"、
+A12+ 叫 "arm64e"。**对 iPhone 12 的结论（不能越狱）仍然成立，但理由是 A14 不在 checkm8 范围，
+不是 arm64e。** 已写进文档 §2.1，并新增纪律：判断机型能否越狱必须回到官方**支持设备列表**核对，
+不能从一句概括性描述外推。
+
+**二、iPhone 8 可行性：可行，而且比原计划更好**
+
+| 事实 | 来源 | 性质 |
+|---|---|---|
+| **Dopamine 支持 A8–A11**（官网原文 `arm64 (A8 - A11)`）、**rootless**、A8–A13 覆盖 iOS 15.0–18.7.1 | [ellekit.space/dopamine](https://ellekit.space/dopamine/) | ✅ 官方 |
+| palera1n 支持 **A8 through A11**，机型表含 iPhone 8 / 8 Plus | [palera1n](https://github.com/palera1n/palera1n) 描述 + README + man page | ✅ 官方 |
+| iPhone 8/8P/X 固件 **11.0/11.1 → 16.7.16**，且 **Apple 至今仍签名 16.7.16** | ipsw.me 实测（6 个型号） | ✅ 实测 |
+| TrollStore 支持 14.0b2–**16.6.1** / 16.7 RC / 17.0；**16.7.x 正式版永不支持** | [TrollStore README](https://github.com/opa334/TrollStore) | ✅ 官方 |
+| iOS **16.7+** 上 Dopamine 需**每 7 天重签**；≤16.6.1 可 TrollStore 免签 | [cfw.guide](https://ios.cfw.guide/installing-dopamine/) | 🟡 权威社区 |
+| 飞书 iOS = **`com.bytedance.ee.lark`**，最低 **iOS 13.0**，`supportedDevices` **含 iPhone 8** | Apple lookup API（`id=1401729613`） | ✅ 官方 API |
+
+**关键点**：Dopamine 是 **rootless + `/var/jb`**，与仓库现有假设**完全一致**
+（`THEOS_PACKAGE_SCHEME=rootless`、`layout/`、`deploy.sh`、`control` 的 `depends: ellekit`），
+**iOS 侧代码一行都不用改**。
+
+**三、发现一处**疑似真实缺陷**（BG-061，未擅自改）**
+
+配置里 `scope.bundle_ids = "com.ss.iphone.ugc.Lark"`，而 App Store 元数据显示飞书是
+**`com.bytedance.ee.lark`**（`com.ss.iphone.ugc.*` 是字节更早的命名，如抖音）。
+**若真机确认如此，theos 过滤器会写错 BundleID → 插件根本不注入，而且不报错。**
+处置：先同时包含两个 ID，真机确认后再收敛。已记入[设备规格](ios/device-spec.md) §5 与任务板。
+
+**四、交付物**
+
+| 文件 | 内容 |
+|---|---|
+| [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md) | 主线切回 iOS 的决策留档；含**被推翻的错误结论**与"没有改变的东西" |
+| [`docs/ios/device-spec.md`](ios/device-spec.md) | iPhone 8 采购规格：版本硬约束、TrollStore 边界、Dopamine/palera1n 对比、安装 SOP、验机命令、风险、逐条来源 |
+| [`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) | §0 校正横幅 + §2.1 错误推论的完整修正 + §4 路线表重排 + §5 已解决项 |
+| [`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md) | 机型/版本推荐改写为 iPhone 8 + Dopamine；**顺带修掉 §1.3 里同类的 arm64e 错误表述** |
+| [`android/README.md`](../android/README.md) | 冻结横幅（冻结≠删除，随时可解冻） |
+
+**五、验证**
+
+```
+$ bash ios/tests/host/run.sh      -> 251 项断言，0 失败（文档改动未破坏任何检查）
+$ bash scripts/check-links.sh -v  -> 245 条内部链接，无断链
+```
+
+**五之二、开 PR 时又抓到两个真实缺陷（BG-062）**
+
+`publish.sh --dry-run` 一跑就炸：
+
+```
+scripts/publish.sh: line 23: .../scripts/lib/common.sh: No such file or directory
+```
+
+**R12 把 `lib/` 搬进 `ios/scripts/lib/` 时，跨端的 `publish.sh` 还在 source 老路径**
+——而这个脚本**不在任何检查里**（`check-scripts.sh` 只覆盖 build/deploy/verify），
+所以它坏了整整两轮才在"真要开 PR"的时候暴露。
+
+修法不是补一行路径，而是**修分层**：跨端 helper（打印 / dry-run / 依赖检查）回到
+`scripts/lib/common.sh`，iOS 专属（授权闸 / 越狱路径 / 过滤器生成）留在 `ios/scripts/lib/common.sh`
+并向跨端那份 source。
+
+**并加了防复发检查** `scripts/check-shell.sh`：全部 `.sh` 的语法 + **`source` 目标存在性**，
+已接入 `bootstrap.sh`（失败即退出码 1）。做了故障注入验证（把 publish.sh 指到不存在的文件 → 确实 FAIL）。
+
+> **顺带记一个值得警惕的写法**：该检查器的 `ok()` 最初写成
+> `PASS=$((PASS+1)); [[ "$VERBOSE" -eq 1 ]] && printf ...` ——
+> 非 `-v` 模式下这个 `&&` 列表返回 1，被 `set -e` 当成失败 →
+> **脚本静默退出、什么都不打印**。这类"看着在跑其实早就死了"的 bug
+> 与本项目历史上踩过的坑同族，已加注释说明为何必须显式 `return 0`。
+
+**五之三、回归验证**
+
+```
+$ bash scripts/bootstrap.sh       -> 退出码 0
+    ✅ 主机检查通过（含 110 条语言中立向量）
+    ✅ 文档链接检查通过
+    ✅ shell 脚本检查通过（语法 + source 目标存在）
+```
+
+**六、诚实标注**
+
+- **完全没有真机动作**：iPhone 8 尚未采购，越狱、编译、抓栈都未发生；
+- Dopamine 是否要求关闭密码，官方文档未提 → **待实测**；
+- 飞书是否有越狱检测，**未查到任何可靠来源**（不编造）；
+- 二手价位**是推断**，本次未取得可靠成交价数据；
+- 设备规格 §10 列出 **11 项必须真机实测**才能确认的事。
+
+### R13（2026-10-14）语言中立测试向量落地 + 日志路径按平台取值
+
+**本轮要解决的问题**：R12 把 iOS 与 Android 摆成两个实现，最大的风险是**两端行为漂移**。
+R12 之前那 92 条断言把「输入 → 期望输出」**写死在 C 代码里**，Java 端无法复用；
+两端各自的单测都绿，也证明不了一致。
+
+**一、交付：110 条语言中立向量 + 两个薄驱动**
+
+| 文件 | 内容 |
+|---|---|
+| [`shared/vectors/bssid-map.json`](../shared/vectors/bssid-map.json) | 映射：归一化 9、格式跟随 9、规则匹配/优先级/default/nil 语义 31、容量与校验 12 |
+| [`shared/vectors/auth-gate.json`](../shared/vectors/auth-gate.json) | 授权闸：静态契约 13、字段写入校验 6、BundleID 容量 5、**判定用例 25** |
+| [`ios/tests/host/vector_rules.c`](../ios/tests/host/vector_rules.c) / [`vector_auth.c`](../ios/tests/host/vector_auth.c) | 读 USV 流、调用**真实核心**、逐条比对；透传时还额外断言「不得写入输出缓冲」 |
+| [`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh) | jq 把 JSON 转成 USV 流；编译并运行两个驱动；已并入 `ios/tests/host/run.sh` |
+
+**为什么用 USV（`0x1f`）而不是 TAB**：TAB 属于 IFS 空白类，连续时会被折叠，
+无法区分「空串」与「NULL」——而向量里「空串 = 不限制」是有意义的取值。
+记号：`@null@` / `@empty@` / `-`（无期望）/ `*`（该字段不断言）。
+
+**二、主机侧断言：141 → 251（覆盖只增不减）**
+
+```
+$ bash ios/tests/host/run.sh
+  配置契约检查          通过（含 log.paths 的新规则）
+  脚本自检             17 通过
+  ObjC 语法检查        18 通过
+  授权闸模拟器          6 通过
+  映射模拟器            8 通过
+  语言中立向量         61 + 49 = 110 通过   ← R13 新增
+  test_bgg_rules       56 通过
+  test_bgg_auth        36 通过
+  断言合计 = 251
+```
+
+C 单测**保留**，但定位变清楚了：向量管「两端必须一致的行为」，
+C 单测还额外管「C API 机制」（透传不写缓冲、`cfg == NULL` 不崩溃、静态表完整性）。
+分工写进了 [`shared/vectors/README.md`](../shared/vectors/README.md)。
+
+**三、证明向量驱动不是空转（故障注入）**
+
+| 注入的故障 | 结果 |
+|---|---|
+| 把一条映射期望值的大小写改错 | ✅ 退出码 1：`got=a1:b2:c3:d4:e5:f6 want=A1:B2:C3:D4:E5:F6` |
+| 把一条「拒绝」判定反转成「放行」 | ✅ 退出码 1：`result=2(授权字段仍为占位符 fill_me) want=0(通过)` |
+
+**四、日志路径按平台取值（BG-058）**
+
+`log.path`（只有 iOS 值）→ `log.paths.{ios,android}`：`ios/hooks/BGGhostConfig.m` 读 `paths.ios`；
+`paths.android` **允许为 `null`**——Android 主通道是 logcat，文件落盘位置取决于运行期私有目录，
+**不写未经真机验证的路径占位**。
+
+契约检查新增三条规则并逐条做了反向验证：
+
+| 注入的故障 | 结果 |
+|---|---|
+| 把旧键 `log.path` 加回来 | ✅ FAIL「旧键，请删除」 |
+| `paths.ios` 改成相对路径 | ✅ FAIL「不是绝对路径」 |
+| 删掉 `paths.ios` | ✅ FAIL「iOS 会退化为仅 NSLog」 |
+
+**五、一个值得记的过程细节（自己抓到自己）**
+
+向量初稿我写了「SSID 为 NULL → 添加失败」。写驱动前读实现，发现
+`BGGhostRuleSetAdd` 对 `ssid == NULL` 是**接受**的（语义 = 不限制 SSID），
+属于合法输入。**期望值必须是语义上正确的，不能是「跑出来的值」**——
+这条已写进 `shared/vectors/README.md` 的纪律。
+
+**六、诚实标注**
+
+- 向量驱动只跑在**主机**上；Android 侧尚未消费（R14 的任务），
+  所以「两端一致」目前是**机制就位**，不是**已证明**；
+- `paths.android` 留空是刻意的，不代表 Android 日志方案已定。
+
+### R12（2026-10-14）转向 Android：ADR + 冻结 iOS + 单仓双端重构
+
+**用户决策**：iPhone 方案否决，主战场转向 Android；仓库组织为**单仓双端**
+（`shared/` + `ios/`(冻结) + `android/`）；核心逻辑**移植成 Java + 共享测试向量**；
+编译链走**本机脚本化最小链**；测试机买**二手 Pixel 8/8a + Android 15**。
+
+**一、进度评估的真实结论（本轮最重要的判断）**
+
+用户最初的判断是「很多代码要重做」。实测清点后的结论**需要修正**：
+仓库 ≈6,683 行里，**要重做的是「壳」，不是「芯」**。
+
+| 层 | 内容 | 行数 | 处置 |
+|---|---|---|---|
+| ① 平台中立 | `BGGhostRules.c`（映射）、`BGGhostAuth.c`（授权闸）、92 条断言、两个模拟器、配置 schema | ≈2,400 | **留用**，作为规格真源 |
+| ② 通用流程 | STATUS/HANDOFF/RESUME、`bootstrap.sh`、`publish.sh`、测试矩阵与证据纪律 | ≈1,100 | 留用，路径改写 |
+| ③ iOS 锁定 | ObjC 胶水、Hook 层、theos 构建、objc-stub、Frida 抓栈、iOS 文档 | ≈3,200 | **冻结**，Android 端另写 |
+
+关键事实：③ 里真正要重做的 Hook 实现**只有 102 行，而且本来就是占位**
+（`BGGhostCoreWLAN.m` 39 行 + `BGGhostHotspot.m` 29 行，全是 TODO）。
+当初把映射与授权判定写成「纯 C + 主机单测」的回报，就是这次转向几乎不损失已验证逻辑。
+
+**二、Android「编译前」可行性：端到端实测通过**
+
+没有停留在「查了镜像有货」，而是**在本机真的打出了一个已签名的 APK**：
+
+| 步骤 | 命令要点 | 结果 |
+|---|---|---|
+| 编译 | `javac -classpath android-36.jar` | ✅ 对真实 API 编译通过（`getConnectionInfo()` 报 deprecated = 证明用的是真 API） |
+| 资源/manifest | `aapt2 link -I android-36.jar --manifest …` | ✅ 产出含二进制 manifest 的 APK |
+| dex 化 | `java -cp r8.jar com.android.tools.r8.D8` | ✅ `classes.dex` |
+| 签名 | `apksig` 的 `ApkSigner` | ✅ **`verified = true`**，证书 `CN=BGProbe,O=BSSIDGhost` |
+| 模块骨架 | `XposedHelpers.findAndHookMethod(WifiInfo.class, "getBSSID", …)` | ✅ 用 legacy API 82 编译通过 |
+
+构件全部来自可达镜像：`android.jar`（GitHub raw，API 到 **37**）、
+`aapt2` 9.4.1 / `d8` / `apksig`（阿里云 Google Maven）、Xposed API 82 与 libxposed 102（阿里云 Central）。
+**结论：Android 端不存在 iOS 那种「编译链落点三选一」的纠结**，本机纯命令行即可出 APK。
+
+**三、设备选型（BG-052）**
+
+采购规格、root 方案、验机命令与**逐条来源+性质标注**落档：
+[`docs/android-device-spec.md`](android-device-spec.md)。核实到的关键事实：
+
+- 国内版飞书 = `com.ss.android.lark`（小米应用商店在架 **8.2.6**，2026-10-13 更新，权限含精确位置）；
+  国际版 Lark = `com.larksuite.suite`，**是另一个 App**，不是我们的目标；
+- **官方 LSPosed 已停更**（最后 v1.9.2 / 2023-10-11，README 明示只支持 Android 8.1~14）；
+  活跃的是 **Vector v2.2**（支持 8.1~17 Beta，需 Magisk/KernelSU + Zygisk）；
+- Magisk 稳定版 **v30.7**；KernelSU **v3.3.1** / KernelSU-Next **v3.4.2**；
+- **最大风险**：Pixel 的 OEM 解锁需联网校验运营商锁（GrapheneOS 文档明示），
+  国内网络环境下可能灰掉——用户已确认有可访问 Google 的网络。
+
+**四、代码与目录变更**
+
+- 冻结：git tag **`ios-r11-host-verified`**（141 项断言全通过的状态）；**未删除任何 iOS 代码**；
+- 迁移（`git mv`，保留历史）：`hooks/`→`ios/hooks/`、`layout/`→`ios/layout/`、
+  `Makefile`/`control`→`ios/`、`config/`→`shared/config/`、iOS 三个脚本→`ios/scripts/`、
+  `tests/{host,objc-stub,frida}`→`ios/tests/`、5 篇 iOS 文档→`docs/ios/`；
+- 保留在跨端层：`scripts/bootstrap.sh`、`scripts/publish.sh`、`tests/README.md`（测试矩阵）、
+  `tests/evidence/`（证据规范）；
+- **根解析加固**：`ios/scripts/lib/common.sh` 推导根目录后会断言 `shared/config/targets.json`
+  存在，否则**立即失败**——防止重构后拿错根目录静默跑偏。
+
+**五、修掉两个真实缺陷（BG-051）**
+
+| # | 缺陷 | 影响 | 修法 |
+|---|---|---|---|
+| 1 | `bootstrap.sh` 的「当前唯一关键路径」还在说「BG-032 编译链三选一，选定前无法产出产物」 | **新会话会被指错方向**（BG-032 在 R9 已定为方案 C），且该提示掩盖了真实阻塞（设备） | 改写为 Android 主线 + 真实阻塞项，并注明 BG-032 已成定论 |
+| 2 | 任务板 **BG-040 一号两用**（交接方案 / 测试矩阵） | 违反「进度真源」的基本约束，任务无法唯一引用 | 测试矩阵改为 **BG-045**，并在记录里注明改号 |
+
+**六、新增防线：文档链接检查器**
+
+重构最大的隐性风险是**文档相对链接悄悄断掉**——而文档正是新会话的唯一入口。
+新增 [`scripts/check-links.sh`](../scripts/check-links.sh)（纯 bash，无新依赖），
+检查全仓库 `.md` 里的 Markdown 内部链接；本轮实测**发现并修掉 52 条断链**，
+现已 **210 条内部链接全通过**，并已接入 `bootstrap.sh`（断链会让它退出码 1）。
+
+**七、验证证据**
+
+```
+$ bash ios/tests/host/run.sh        # 重构后重新全绿
+  配置契约检查 通过
+  脚本自检             17 通过, 0 失败
+  ObjC 语法检查        18 通过, 0 失败
+  授权闸模拟器          6 通过, 0 失败
+  映射模拟器            8 通过, 0 失败
+  test_bgg_rules       56 通过, 0 失败
+  test_bgg_auth        36 通过, 0 失败
+  ==> 全部测试目标通过          （合计 141 项）
+
+$ bash scripts/bootstrap.sh
+    ✅ 必需工具齐全
+    ✅ 主机检查通过
+    ✅ 文档链接检查通过（无断链）
+
+$ bash scripts/check-links.sh -v
+  检查了 20 个文件、210 条内部链接。链接检查通过：无断链。
+```
+
+**八、诚实标注（本轮的缺口）**
+
+- Android 端**一个真机动作都没做过**：没有设备、没有抓栈、没有装过模块；
+- APK 只在本机**签名并验证**过，**没有在 Android 上安装运行过**（本机无 `/dev/kvm`，跑不了模拟器）；
+- 飞书是否有 root/Xposed 检测、`WifiInfo.getBSSID()` 在 Android 15 上要哪个权限，
+  **均为待实测**（见 [设备规格](android-device-spec.md) §8）；
+- `docs/android-device-spec.md` 的价格区间是**推断**，无可靠来源。
+
 ### R9（2026-10-13）BG-032 决策落地：选定方案 C + 设备准备 SOP
 
 **用户决策**：`BG-032 = C` —— 在越狱设备上用 **Procursus 工具链**就地编译并验证。
 
-**交付**：[`docs/ondevice-build-setup.md`](ondevice-build-setup.md) ——
+**交付**：[`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md) ——
 从"准备一台 iPhone"到"跑通 T1–T10"的完整 SOP。本轮的**核实工作**（这部分才是难点）：
 
 | 核实项 | 结论 | 来源 |
@@ -159,8 +503,8 @@
 
 **二、修复一个会在 Mac 上产生假通过的缺陷（BG-041）**
 
-发现的问题：[`check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh) 原来无条件带
-`-I tests/objc-stub`。在装有 iOS SDK 的 Mac 上，这个 `-I` 会**把真 `Foundation.h` 顶掉**，
+发现的问题：[`check-objc-syntax.sh`](../ios/tests/host/check-objc-syntax.sh) 原来无条件带
+`-I ios/tests/objc-stub`。在装有 iOS SDK 的 Mac 上，这个 `-I` 会**把真 `Foundation.h` 顶掉**，
 于是「检查通过」其实是拿声明桩跑出来的——**假通过**，而且在换 Mac 的场景下最容易发生。
 
 修法：脚本改为二选一，并打印所用模式 ——
@@ -185,8 +529,8 @@
 
 | 文件 | 内容 |
 |---|---|
-| [`tests/host/map_sim.c`](../tests/host/map_sim.c) | 读 `global/rule/default/query/querynil` 类型的 TSV，调用 `BGGhostRules.c` 的真实接口，逐条打印「返回什么 + 是替换还是透传」 |
-| [`tests/host/map-sim.sh`](../tests/host/map-sim.sh) | 用 jq 抽取真实映射表；无参数时**按配置里的每条规则自动生成查询**；`--ssid/--bssid` 指定查询；`--self-test` 8 组断言 |
+| [`ios/tests/host/map_sim.c`](../ios/tests/host/map_sim.c) | 读 `global/rule/default/query/querynil` 类型的 TSV，调用 `BGGhostRules.c` 的真实接口，逐条打印「返回什么 + 是替换还是透传」 |
+| [`ios/tests/host/map-sim.sh`](../ios/tests/host/map-sim.sh) | 用 jq 抽取真实映射表；无参数时**按配置里的每条规则自动生成查询**；`--ssid/--bssid` 指定查询；`--self-test` 8 组断言 |
 
 对当前仓库的实际输出（体现"安全默认"）：
 
@@ -209,7 +553,7 @@
 **二、nehelper 可证伪实验设计（BG-039）**
 
 §2.1 是外部资料，为避免"抓一次栈、看到什么都往结论上套"，
-在 [`docs/tech-chain.md`](tech-chain.md) §2.2 写死了：
+在 [`docs/ios/tech-chain.md`](ios/tech-chain.md) §2.2 写死了：
 
 - **假设 H1** 与「若成立应当出现的 3 类事件」；
 - **判别表**：只有 objc / 只有 xpc / 两者值不同 / 两者值相同 → 各自结论与 Hook 落点；
@@ -226,15 +570,15 @@
 **一、授权闸模拟器（BG-036）**
 
 把**真实配置**喂给**真实判定代码**，在不接触设备的情况下回答
-「以当前 `config/targets.json` 为准，Hook 会对某个 BundleID 启用还是拒绝」：
+「以当前 `shared/config/targets.json` 为准，Hook 会对某个 BundleID 启用还是拒绝」：
 
 | 文件 | 内容 |
 |---|---|
-| [`tests/host/gate_sim.c`](../tests/host/gate_sim.c) | 从 stdin 读 `KIND<TAB>KEY<TAB>VALUE`，调用 `BGGhostAuth.c` 的真实接口，输出判定 + 原因 + 责任字段 |
-| [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh) | 用 jq 从 JSON 抽取输入；`--bundle` 指定进程；`--self-test` 跑 6 组断言 |
+| [`ios/tests/host/gate_sim.c`](../ios/tests/host/gate_sim.c) | 从 stdin 读 `KIND<TAB>KEY<TAB>VALUE`，调用 `BGGhostAuth.c` 的真实接口，输出判定 + 原因 + 责任字段 |
+| [`ios/tests/host/gate-sim.sh`](../ios/tests/host/gate-sim.sh) | 用 jq 从 JSON 抽取输入；`--bundle` 指定进程；`--self-test` 跑 6 组断言 |
 
 ```
-$ tests/host/gate-sim.sh
+$ ios/tests/host/gate-sim.sh
 输入：授权字段 6/6，scope.mode=allowlist，bundle=1，constraints=有
 目标进程：com.ss.iphone.ugc.Lark
 判定：拒绝 —— Hook 不会启用
@@ -252,7 +596,7 @@ BundleID 不在作用域 → 指向 `scope.bundle_ids`；授权填齐 + 在作�
 
 **二、编译链决策材料（BG-037）**
 
-[`docs/build-chain-options.md`](build-chain-options.md) 把三个选项的前置条件、成本、
+[`docs/ios/build-chain-options.md`](ios/build-chain-options.md) 把三个选项的前置条件、成本、
 能验证到什么都摊开，并附**本轮实测**的环境事实：
 
 | 实测 | 结果 |
@@ -269,22 +613,22 @@ BundleID 不在作用域 → 指向 `scope.bundle_ids`；授权填齐 + 在作�
 
 ### R5（2026-10-13）ObjC 层首次获得编译器检查
 
-**动因**：此前 `hooks/*.m` 是全项目**唯一零编译验证**的部分，也是风险最高的部分。
+**动因**：此前 `ios/hooks/*.m` 是全项目**唯一零编译验证**的部分，也是风险最高的部分。
 本机没有 iOS SDK，但有 clang —— 于是写一层最小声明桩，让 `-fsyntax-only` 真正跑起来。
 
 **交付**
 
 | 文件 | 内容 |
 |---|---|
-| [`tests/objc-stub/Foundation/Foundation.h`](../tests/objc-stub/Foundation/Foundation.h) | 最小 Foundation 声明桩：`NSString`/`NSArray`/`NSDictionary`/`NSData`/`NSNumber`/`NSFileManager`/`NSBundle`/`NSJSONSerialization`/`NSError`/`NSLog`、快速枚举、轻量泛型、字面量所需的类方法 |
-| [`tests/objc-stub/os/lock.h`](../tests/objc-stub/os/lock.h) | `os_unfair_lock` 声明与 `OS_UNFAIR_LOCK_INIT`（Darwin 头，Linux 没有） |
-| [`tests/objc-stub/README.md`](../tests/objc-stub/README.md) | 桩的用途、**查不出来的东西**、维护原则 |
-| [`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh) | 检查器：5 个 `.m` + 7 个头文件自包含 + 5 条反向用例 |
+| [`ios/tests/objc-stub/Foundation/Foundation.h`](../ios/tests/objc-stub/Foundation/Foundation.h) | 最小 Foundation 声明桩：`NSString`/`NSArray`/`NSDictionary`/`NSData`/`NSNumber`/`NSFileManager`/`NSBundle`/`NSJSONSerialization`/`NSError`/`NSLog`、快速枚举、轻量泛型、字面量所需的类方法 |
+| [`ios/tests/objc-stub/os/lock.h`](../ios/tests/objc-stub/os/lock.h) | `os_unfair_lock` 声明与 `OS_UNFAIR_LOCK_INIT`（Darwin 头，Linux 没有） |
+| [`ios/tests/objc-stub/README.md`](../ios/tests/objc-stub/README.md) | 桩的用途、**查不出来的东西**、维护原则 |
+| [`ios/tests/host/check-objc-syntax.sh`](../ios/tests/host/check-objc-syntax.sh) | 检查器：5 个 `.m` + 7 个头文件自包含 + 5 条反向用例 |
 
 **验证证据**
 
 ```
-$ tests/host/check-objc-syntax.sh
+$ ios/tests/host/check-objc-syntax.sh
   ok   BGGhostConfig.m / BGGhostCoreWLAN.m / BGGhostHotspot.m / BGGhostMap.m / Hooks.m
   ok   7 个头文件「单独包含」全部通过
   ok   反向：未声明的函数被查出
@@ -299,7 +643,7 @@ $ tests/host/check-objc-syntax.sh
 `BGGhostLog` 格式串完全没被检查**。改成真实的
 `__attribute__((format(__NSString__, a, b)))` 后，`BGGhostLog(@"%@", cString)` 这类错误
 才会在主机上被抓住 —— 这正是当初 `Hooks.h` 漏声明那类问题的同族。桩与真头文件的属性
-必须一致，否则会静默漏掉一整类检查（已写进 `tests/objc-stub/README.md` 的维护原则）。
+必须一致，否则会静默漏掉一整类检查（已写进 `ios/tests/objc-stub/README.md` 的维护原则）。
 
 **R5 之后的事实边界（不要含糊）**
 
@@ -316,19 +660,19 @@ $ tests/host/check-objc-syntax.sh
 
 | 文件 | 内容 |
 |---|---|
-| [`Makefile`](../Makefile) | theos 打包：`THEOS_PACKAGE_SCHEME=rootless`、`TARGET iphone:clang:latest:15.0`、`ARCHS arm64 arm64e`、`-fobjc-arc` |
-| [`control`](../control) | deb 元信息；含 `<team>` 占位符（未替换则打包被拒）；`Depends: ellekit \| mobilesubstrate` |
-| [`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) | 过滤器（**只按 `scope.bundle_ids` 过滤**），构建时重新生成，L0 检查防止漂移 |
-| [`scripts/lib/common.sh`](../scripts/lib/common.sh) | 三个脚本共用：授权闸（脚本侧防线）、过滤器生成、`--dry-run` 执行器 |
-| [`scripts/build.sh`](../scripts/build.sh) | 两条编译链（theos / clang 可切换或自动选择）、多架构 + `llvm-lipo`、生成过滤器与随包配置 |
-| [`scripts/deploy.sh`](../scripts/deploy.sh) | `deb`（推送 + `dpkg -i`）与 `files`（dylib + plist）两种方式；rootless `/var/jb` 路径；自动选择唯一设备 |
-| [`scripts/verify.sh`](../scripts/verify.sh) | 只读验证：本地闸门状态 + SSH 抓日志判定 T1/T9；退出码 0/1/2 区分「通过 / 失败 / 仅本地」 |
-| [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh) | 脚本自检：10 条正向（dry-run 命令拼装）+ 7 条反向（授权闸、`<team>`、参数校验） |
+| [`Makefile`](../ios/Makefile) | theos 打包：`THEOS_PACKAGE_SCHEME=rootless`、`TARGET iphone:clang:latest:15.0`、`ARCHS arm64 arm64e`、`-fobjc-arc` |
+| [`control`](../ios/control) | deb 元信息；含 `<team>` 占位符（未替换则打包被拒）；`Depends: ellekit \| mobilesubstrate` |
+| [`ios/layout/…/BSSIDGhost.plist`](../ios/layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) | 过滤器（**只按 `scope.bundle_ids` 过滤**），构建时重新生成，L0 检查防止漂移 |
+| [`ios/scripts/lib/common.sh`](../ios/scripts/lib/common.sh) | 三个脚本共用：授权闸（脚本侧防线）、过滤器生成、`--dry-run` 执行器 |
+| [`ios/scripts/build.sh`](../ios/scripts/build.sh) | 两条编译链（theos / clang 可切换或自动选择）、多架构 + `llvm-lipo`、生成过滤器与随包配置 |
+| [`ios/scripts/deploy.sh`](../ios/scripts/deploy.sh) | `deb`（推送 + `dpkg -i`）与 `files`（dylib + plist）两种方式；rootless `/var/jb` 路径；自动选择唯一设备 |
+| [`ios/scripts/verify.sh`](../ios/scripts/verify.sh) | 只读验证：本地闸门状态 + SSH 抓日志判定 T1/T9；退出码 0/1/2 区分「通过 / 失败 / 仅本地」 |
+| [`ios/tests/host/check-scripts.sh`](../ios/tests/host/check-scripts.sh) | 脚本自检：10 条正向（dry-run 命令拼装）+ 7 条反向（授权闸、`<team>`、参数校验） |
 
 **验证证据**
 
 ```
-$ tests/host/run.sh
+$ ios/tests/host/run.sh
 ==> [L0] 配置契约检查 … 通过（含「过滤器 plist 与 bundle_ids 一致」）
 ==> [L0] 脚本自检 … 结果：17 通过, 0 失败
 ==> [test_bgg_rules] 结果：56 通过, 0 失败
@@ -346,7 +690,7 @@ $ tests/host/run.sh
 | 编译链默认 | `--toolchain auto`：有 `$THEOS` 用 theos，否则 clang | 两种环境都能开箱即用；显式传参可覆盖 |
 | 私有框架链接 | **不链接** CoreWLAN 等私有框架，运行时用 `NSClassFromString`/`dlopen` | 避免依赖 SDK 里是否存在对应 stub |
 | deb 路线的过滤器 | **始终按 `scope.bundle_ids` 过滤**，不因 `mode=all` 放宽注入范围；`bundle_ids` 为空则拒绝打包 | 防止误注入系统进程；`mode=all` 只影响运行期判定 |
-| 过滤器与随包配置 | 由 `build.sh` 生成，`layout/usr/share/bssidghost/` 走 `.gitignore` | 避免与 `config/` 漂移；L0 检查兜住提交在仓库里的那份 plist |
+| 过滤器与随包配置 | 由 `build.sh` 生成，`ios/layout/usr/share/bssidghost/` 走 `.gitignore` | 避免与 `shared/config/` 漂移；L0 检查兜住提交在仓库里的那份 plist |
 | 仓库里的 plist | 保留一份「安全默认」并纳入 L0 一致性检查 | 防止有人直接 `make package` 时插件在所有进程加载 |
 | 脚本侧授权闸 | 与 `BGGhostAuth.c` 语义对齐，但**不重复实现判定** | 真正的判定有 36 条单测；脚本只做「明显未授权就停」 |
 | `verify.sh` 退出码 | 0 通过 / 1 失败 / 2 仅本地 | 「没做设备侧检查」不能等同于「验证通过」 |
@@ -358,16 +702,16 @@ $ tests/host/run.sh
 
 | 文件 | 内容 |
 |---|---|
-| [`hooks/BGGhostAuth.h`](../hooks/BGGhostAuth.h) / [`.c`](../hooks/BGGhostAuth.c) | 授权闸与作用域判定的**纯 C 核心**：字段缺值/占位符、约束开关、scope.mode、bundle 匹配 |
-| [`hooks/BGGhostConfig.h`](../hooks/BGGhostConfig.h) / [`.m`](../hooks/BGGhostConfig.m) | 读 `targets.json` → `BGAuthConfig`；读 `bssid_map.json` 的 `log` 段 → `BGLogConfig`；**fail closed** |
-| [`hooks/Hooks.m`](../hooks/Hooks.m) | 授权闸接入 `BGGhostInstallHooks`（拒绝时写明原因与责任字段）；日志落盘 + 1 MiB 轮转 |
-| [`tests/host/test_bgg_auth.c`](../tests/host/test_bgg_auth.c) | 36 条断言 |
-| [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh) | L0 契约检查：JSON 键名 ↔ C 侧 `kBGAuthFieldKeys`、容量上限、BSSID 格式、日志设置 |
+| [`ios/hooks/BGGhostAuth.h`](../ios/hooks/BGGhostAuth.h) / [`.c`](../ios/hooks/BGGhostAuth.c) | 授权闸与作用域判定的**纯 C 核心**：字段缺值/占位符、约束开关、scope.mode、bundle 匹配 |
+| [`ios/hooks/BGGhostConfig.h`](../ios/hooks/BGGhostConfig.h) / [`.m`](../ios/hooks/BGGhostConfig.m) | 读 `targets.json` → `BGAuthConfig`；读 `bssid_map.json` 的 `log` 段 → `BGLogConfig`；**fail closed** |
+| [`ios/hooks/Hooks.m`](../ios/hooks/Hooks.m) | 授权闸接入 `BGGhostInstallHooks`（拒绝时写明原因与责任字段）；日志落盘 + 1 MiB 轮转 |
+| [`ios/tests/host/test_bgg_auth.c`](../ios/tests/host/test_bgg_auth.c) | 36 条断言 |
+| [`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) | L0 契约检查：JSON 键名 ↔ C 侧 `kBGAuthFieldKeys`、容量上限、BSSID 格式、日志设置 |
 
 **验证证据**
 
 ```
-$ tests/host/run.sh
+$ ios/tests/host/run.sh
 ==> [L0] 配置契约检查 … 通过
 ==> [test_bgg_rules] 结果：56 通过, 0 失败
 ==> [test_bgg_auth]  结果：36 通过, 0 失败
@@ -405,15 +749,15 @@ $ tests/host/run.sh
 
 | 文件 | 内容 |
 |---|---|
-| [`hooks/BGGhostRules.h`](../hooks/BGGhostRules.h) / [`.c`](../hooks/BGGhostRules.c) | BSSID 映射的**纯 C 核心**：归一化、格式跟随、规则匹配、默认值、表容量 |
-| [`hooks/BGGhostMap.h`](../hooks/BGGhostMap.h) / [`.m`](../hooks/BGGhostMap.m) | ObjC 胶水：`bssid_map.json` → `BGRuleSet`，对 `NSString` 做映射 |
-| [`tests/host/test_bgg_rules.c`](../tests/host/test_bgg_rules.c) / [`run.sh`](../tests/host/run.sh) | 主机侧单测，56 条断言 |
-| [`hooks/BGGhostCoreWLAN.m`](../hooks/BGGhostCoreWLAN.m) | 移除占位映射函数，改为调用映射层；保留 Hook 注册 TODO |
+| [`ios/hooks/BGGhostRules.h`](../ios/hooks/BGGhostRules.h) / [`.c`](../ios/hooks/BGGhostRules.c) | BSSID 映射的**纯 C 核心**：归一化、格式跟随、规则匹配、默认值、表容量 |
+| [`ios/hooks/BGGhostMap.h`](../ios/hooks/BGGhostMap.h) / [`.m`](../ios/hooks/BGGhostMap.m) | ObjC 胶水：`bssid_map.json` → `BGRuleSet`，对 `NSString` 做映射 |
+| [`ios/tests/host/test_bgg_rules.c`](../ios/tests/host/test_bgg_rules.c) / [`run.sh`](../ios/tests/host/run.sh) | 主机侧单测，56 条断言 |
+| [`ios/hooks/BGGhostCoreWLAN.m`](../ios/hooks/BGGhostCoreWLAN.m) | 移除占位映射函数，改为调用映射层；保留 Hook 注册 TODO |
 
 验证证据（L1 实测）：
 
 ```
-$ tests/host/run.sh
+$ ios/tests/host/run.sh
 编译：clang -std=c11 -Wall -Wextra -Werror -O1
 结果：56 通过, 0 失败
 ```
@@ -422,9 +766,9 @@ $ tests/host/run.sh
 
 | 文件 | 内容 |
 |---|---|
-| [`tests/frida/capture-wifi-api.js`](../tests/frida/capture-wifi-api.js) | Frida 只读抓栈：ObjC 通道（`CWFInterface` / `CWInterface` / `CWNetwork` / `CWWiFiClient` / `NEHotspotNetwork`）、`CNCopyCurrentNetworkInfo`、**nehelper XPC 请求与应答**、`getifaddrs` 接口 MAC 对照；输出 JSONL |
-| [`docs/device-setup.md`](device-setup.md) | 真机准备 SOP：frida-server 版本严格匹配、rootless 路径、`iproxy`/SSH、验证清单、故障排查 |
-| [`tests/frida/README.md`](../tests/frida/README.md) | 脚本用法、覆盖点、**已知限制**（嵌套折叠、异步应答、未实跑） |
+| [`ios/tests/frida/capture-wifi-api.js`](../ios/tests/frida/capture-wifi-api.js) | Frida 只读抓栈：ObjC 通道（`CWFInterface` / `CWInterface` / `CWNetwork` / `CWWiFiClient` / `NEHotspotNetwork`）、`CNCopyCurrentNetworkInfo`、**nehelper XPC 请求与应答**、`getifaddrs` 接口 MAC 对照；输出 JSONL |
+| [`docs/ios/device-setup.md`](ios/device-setup.md) | 真机准备 SOP：frida-server 版本严格匹配、rootless 路径、`iproxy`/SSH、验证清单、故障排查 |
+| [`ios/tests/frida/README.md`](../ios/tests/frida/README.md) | 脚本用法、覆盖点、**已知限制**（嵌套折叠、异步应答、未实跑） |
 | [`tests/evidence/README.md`](../tests/evidence/README.md) | 证据命名、摘要模板、「实测 vs 外部资料」纪律 |
 
 脚本仅通过 `node --check` 语法校验，**未在任何设备上实跑**；首个真机结论出来前，

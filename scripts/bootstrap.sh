@@ -7,7 +7,7 @@
 #
 # 设计目标：在一台**全新的机器**上，5 分钟内回答三个问题：
 #   1. 我缺什么工具？（必需 / 可选分开列，附本平台安装命令）
-#   2. 这个仓库现在是不是健康的？（跑 tests/host/run.sh，不需要设备）
+#   2. 这个仓库现在是不是健康的？（跑 ios/tests/host/run.sh，不需要设备）
 #   3. 我接下来该做什么？（读取顺序 + 当前阻塞项）
 #
 # Linux 与 macOS 都已适配。退出码：0 = 必需项齐全且检查通过；1 = 有缺失或检查失败。
@@ -147,7 +147,7 @@ if [[ "${SKIP_TESTS}" -eq 0 ]]; then
     set +e
     # 先把输出收进变量再取退出码：管道后的 $? 是 tail 的，会把失败误报成通过。
     set +e
-    SUITE_OUTPUT="$(bash "${ROOT}/tests/host/run.sh" 2>&1)"
+    SUITE_OUTPUT="$(bash "${ROOT}/ios/tests/host/run.sh" 2>&1)"
     code=$?
     set -e
     printf '%s\n' "${SUITE_OUTPUT}" | tail -n 20
@@ -163,6 +163,40 @@ else
 fi
 echo
 
+# --- 文档链接检查（跨平台）---------------------------------------------------
+LINK_STATUS="跳过"
+if [[ "${SKIP_TESTS}" -eq 0 ]]; then
+    echo "--- 文档链接检查（重构后最容易悄悄断掉的东西）---"
+    set +e
+    LINK_OUTPUT="$(bash "${ROOT}/scripts/check-links.sh" 2>&1)"
+    link_code=$?
+    set -e
+    printf '%s\n' "${LINK_OUTPUT}" | tail -n 12
+    if [[ "${link_code}" -eq 0 ]]; then
+        LINK_STATUS="通过"
+    else
+        LINK_STATUS="失败"
+    fi
+    echo
+fi
+
+# --- shell 脚本静态检查（跨平台）---------------------------------------------
+SHELL_STATUS="跳过"
+if [[ "${SKIP_TESTS}" -eq 0 ]]; then
+    echo "--- shell 脚本静态检查（语法 + source 目标存在性）---"
+    set +e
+    SHELL_OUTPUT="$(bash "${ROOT}/scripts/check-shell.sh" 2>&1)"
+    shell_code=$?
+    set -e
+    printf '%s\n' "${SHELL_OUTPUT}" | tail -n 8
+    if [[ "${shell_code}" -eq 0 ]]; then
+        SHELL_STATUS="通过"
+    else
+        SHELL_STATUS="失败"
+    fi
+    echo
+fi
+
 # --- 总结与下一步 ------------------------------------------------------------
 echo "==> 总结"
 if [[ "${MISSING_REQUIRED}" -gt 0 ]]; then
@@ -171,36 +205,59 @@ else
     echo "    ✅ 必需工具齐全"
 fi
 if [[ "${SUITE_STATUS}" == "通过" ]]; then
-    echo "    ✅ 主机检查通过（配置契约 / 脚本自检 / ObjC 语法 / 两个模拟器 / 纯 C 单测）"
+    echo "    ✅ 主机检查通过（配置契约 / 脚本自检 / ObjC 语法 / 两个模拟器 / 语言中立向量 / 纯 C 单测）"
 elif [[ "${SUITE_STATUS}" == "跳过" ]]; then
     echo "    ⚠️  主机检查未执行"
 else
     echo "    ❌ 主机检查${SUITE_STATUS}"
 fi
+case "${LINK_STATUS}" in
+    通过) echo "    ✅ 文档链接检查通过（无断链）" ;;
+    跳过) echo "    ⚠️  文档链接检查未执行" ;;
+    *)    echo "    ❌ 文档链接检查失败" ;;
+esac
+case "${SHELL_STATUS}" in
+    通过) echo "    ✅ shell 脚本检查通过（语法 + source 目标存在）" ;;
+    跳过) echo "    ⚠️  shell 脚本检查未执行" ;;
+    *)    echo "    ❌ shell 脚本检查失败" ;;
+esac
 echo
 
 cat <<'EOF'
 ==> 接下来做什么
 
+当前主线：**iOS 版**（R14 起；Android 已暂停冻结，见 docs/adr/0002-return-to-ios.md）
+
 读取顺序（新会话 / 新机器都按这个来）：
-  1. RESUME.md              5 分钟跑通 + 当前进度与缺口
-  2. HANDOFF.md             交接备忘：已定决策、风险、未决事项
-  3. docs/STATUS.md         进度真源：任务板 BG-xxx + 阻塞项
-  4. docs/tech-chain.md     技术链路与 Hook 点（§2.2 是可证伪实验设计）
+  1. RESUME.md                    5 分钟跑通 + 当前进度与缺口
+  2. HANDOFF.md                   交接备忘：已定决策、风险、未决事项
+  3. docs/STATUS.md               进度真源：任务板 BG-xxx + 阻塞项
+  4. docs/adr/0002-return-to-ios.md   为什么主线切回 iOS（含被推翻的旧结论）
+  5. docs/ios/purchase-checklist.md  **一页采购清单（可直接发给卖家）**
+  6. docs/ios/device-spec.md      iPhone 8 采购规格 + 越狱方案 + 验机命令（含来源与性质）
+  7. docs/ios/tech-chain.md       iOS 链路与 Hook 点（§2.2 是可证伪实验）
 
-当前唯一的关键路径：
-  [BG-032] 编译链落点 —— 三选一，决策材料见 docs/build-chain-options.md
-    A) macOS + theos（风险最低）
-    B) 本机装 theos + iOS SDK + ldid
-    C) 越狱机上用 Procursus 工具链
-  选定前：无法产出任何编译/链接产物，ObjC 层只到语法检查。
+当前关键路径（iOS 侧）：
+  机型与工具已定 —— iPhone 8（A11）+ Dopamine（rootless /var/jb）
+  **版本是硬约束** —— 优先买已在 iOS <=16.6.1 的机器（可用 TrollStore 免每 7 天重签）；
+                     Apple 只签 16.7.16，买错了退不回去
+  代码不用改 —— Dopamine 的 rootless 前缀就是 /var/jb，与仓库假设完全一致
 
-真机线还缺三样（都不由助手代填/代办）：
-  1) config/targets.json 的 6 个授权字段（现为 fill_me）
-  2) 一台已越狱的测试机（Dopamine / rootless，iOS 15.0-16.6.x）
-  3) 同意安装 frida（抓栈用，见 docs/device-setup.md）
+仍需你提供（助手不代填 / 不代办）：
+  1) shared/config/targets.json 的 6 个授权字段（现为 fill_me）
+  2) 一台 iPhone 8（**优先 <=16.6.1**）；8 Plus 内存更大（3GB vs 2GB）更稳
+  3) 同意安装 frida（BG-011 抓栈用，见 docs/ios/device-spec.md）
+
+⚠️ 打包前必须先确认一件事（BG-061）：
+  配置里 scope.bundle_ids 是 com.ss.iphone.ugc.Lark，而 App Store 显示飞书是
+  com.bytedance.ee.lark。**BundleID 写错插件不会注入，而且不报错。** 先真机确认。
+
+Android（**暂停冻结**，不是删除）：
+  代码、文档、设备规格全部保留，随时可解冻；R12-R13 的产出（单仓双端结构、
+  110 条语言中立向量）与主线在哪一侧无关，继续有效。见 android/README.md。
 EOF
 
-if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* ]]; then
+if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* \
+      || "${LINK_STATUS}" == "失败" || "${SHELL_STATUS}" == "失败" ]]; then
     exit 1
 fi

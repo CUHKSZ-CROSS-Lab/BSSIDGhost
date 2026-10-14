@@ -1,0 +1,34 @@
+{
+  "_comment": "BSSID 映射表：真实值 -> 伪造值。仅替换 BSSID，SSID 刻意保持不变。",
+  "_format": "BSSID 接受 AA:BB:CC:DD:EE:FF / aa-bb-cc-dd-ee-ff / aabbccddeeff；输出格式自动跟随接口返回的真实值（大小写与分隔符一致）",
+  "_default_semantics": "default 仅在 default.enabled 为 true 时生效；否则未命中任何规则的网络一律透传真实 BSSID（见 tests/README.md T7）",
+  "_matching": "rules[].match.ssid 为空 = 不限制 SSID；match.bssid 为空 = 不限制真实 BSSID；SSID 按 802.11 语义大小写敏感精确匹配；多条命中时取第一条",
+  "enabled": false,
+  "default": {
+    "enabled": false,
+    "fake_bssid": "11:22:33:44:55:66"
+  },
+  "rules": [
+    {
+      "name": "example-office-wifi",
+      "match": {
+        "ssid": "Office_WiFi",
+        "bssid": "AA:BB:CC:DD:EE:FF"
+      },
+      "replace": {
+        "bssid": "11:22:33:44:55:66"
+      },
+      "enabled": false
+    }
+  ],
+  "log": {
+    "_comment": "enabled=false 时只输出 NSLog；max_bytes 超过后把当前文件轮转为 <path>.1（保留一份备份）",
+    "_platform_note": "路径按平台取值（R13）：iOS 走 paths.ios；Android 主通道是 logcat（tag=BSSIDGhost），文件日志为可选，paths.android 留待 R14 与 Java 日志实现一起定 —— 不用猜的路径占位。",
+    "enabled": true,
+    "paths": {
+      "ios": "/var/mobile/Library/Logs/BSSIDGhost/ghost.log",
+      "android": null
+    },
+    "max_bytes": 1048576
+  }
+}

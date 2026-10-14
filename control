@@ -1,9 +1,0 @@
-Package: com.<team>.bssidghost
-Name: BSSIDGhost
-Version: 0.1.0
-Architecture: iphoneos-arm64
-Description: 内部测试工具（幻影 BSSID）：Hook iOS 的 Wi-Fi 信息接口，只替换 App 读取到的 BSSID 返回值，SSID 与真实链路不变。仅限自有或已获书面授权的 App 与受控测试设备；config/targets.json 的授权字段未填齐时 Hook 会拒绝启用。
-Maintainer: <team>
-Author: <team>
-Section: Tweaks
-Depends: ellekit | mobilesubstrate

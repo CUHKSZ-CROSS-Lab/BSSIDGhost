@@ -161,17 +161,22 @@ $(printf '%s\n' "${COMMITS}" | sed 's/^/- /')
 
 ## 验证
 
-- \`bash scripts/bootstrap.sh\` 全绿：6 个主机检查目标、141 项断言（配置契约 / 脚本自检 17 / ObjC 语法与头文件自包含 18 / 授权闸模拟器 6 / 映射模拟器 8 / 纯 C 单测 92）
+- \`bash scripts/bootstrap.sh\` 全绿：**251 项断言**（配置契约 / 脚本自检 17 / ObjC 语法与头文件自包含 18 / 授权闸模拟器 6 / 映射模拟器 8 / **语言中立向量 110** / 纯 C 单测 92）
 - 以上均**不需要设备**，可在任意 Linux / macOS 上复现
 
 ## 已知边界（不要误读为"已完成"）
 
-- **没有任何代码在真实 iOS SDK 上编译或链接过**（BG-032 编译链落点未决）；
-  \`hooks/*.m\` 只到语法检查，\`scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）
-- 真机线未解锁：\`config/targets.json\` 的授权字段仍为 \`fill_me\`，
-  授权闸会拒绝 build / deploy / Hook（这是刻意设计，见 \`hooks/BGGhostAuth.c\`）
+- **没有任何代码在真实 iOS SDK 上编译或链接过**（这是当前最大的空洞）；
+  \`ios/hooks/*.m\` 只到语法检查，\`ios/scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）。
+  编译链落点**已在 R9 定为方案 C**（设备端 Procursus 工具链），等待设备到位后执行
+- **主线已于 R14 切回 iOS**（iPhone 8 + Dopamine）；Android 暂停冻结但代码全保留。
+  两次反转的决策留档见 \`docs/adr/0001-pivot-to-android.md\` 与 \`docs/adr/0002-return-to-ios.md\`
+- ⚠️ **打包前先确认飞书真实 BundleID（BG-061）**：配置里是 \`com.ss.iphone.ugc.Lark\`，
+  而 App Store 显示为 \`com.bytedance.ee.lark\`；写错会导致插件**静默不注入**
+- 真机线未解锁：\`shared/config/targets.json\` 的授权字段仍为 \`fill_me\`，
+  授权闸会拒绝 build / deploy / Hook（这是刻意设计，见 \`ios/hooks/BGGhostAuth.c\`）
 - 来自外部资料的结论（nehelper XPC）一律标注「待真机验证」，
-  可证伪实验设计见 \`docs/tech-chain.md\` §2.2
+  可证伪实验设计见 \`docs/ios/tech-chain.md\` §2.2
 EOF
 )"
 
