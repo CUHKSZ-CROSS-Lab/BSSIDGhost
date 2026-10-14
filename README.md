@@ -2,14 +2,16 @@
 
 > 幻影 BSSID · 在**已 root / 已越狱的移动设备**上 Hook 篡改 Wi-Fi 信息接口，伪造目标 App **读取到的** BSSID 返回值
 
-**当前主线平台：Android**（iOS 版已冻结，见 [ADR-0001](./docs/adr/0001-pivot-to-android.md)）。
+**当前主线平台：iOS**（R14 切回；Android 已暂停冻结，见
+[ADR-0002](./docs/adr/0002-return-to-ios.md)）。
 
 | | |
 |---|---|
-| 目标 App | 国内版飞书 **`com.ss.android.lark`** |
-| 注入路线 | 先 Frida 只读抓栈，再落 **LSPosed 模块**（Vector + legacy API 82） |
-| 测试机 | 二手 Google Pixel 8 / 8a，**Android 15（API 35）** + Magisk |
-| 编译链 | 本机命令行 `javac` + `d8/R8` + `aapt2` + `apksig`（**无需 Android Studio**） |
+| 目标 App | 国内版飞书（App Store 元数据 **`com.bytedance.ee.lark`**，⚠️ 与配置不符，见 BG-061） |
+| 测试机 | **iPhone 8（A11）**；**优先买已在 iOS ≤16.6.1** 的机器 |
+| 越狱工具 | **Dopamine**（rootless，`/var/jb`，semi-untethered） |
+| 注入运行时 | **ElleKit**（Dopamine/palera1n 都基于它；兼容旧 `MSHook*` 写法） |
+| 编译链 | 方案 C：越狱设备上就地编译（Procursus 工具链） |
 
 ## 快速开始
 
@@ -21,8 +23,9 @@ bash scripts/bootstrap.sh
 - **5 分钟恢复与交接**：[`RESUME.md`](./RESUME.md)
 - **交接备忘（已定决策 / 风险 / 未决事项）**：[`HANDOFF.md`](./HANDOFF.md)
 - **进度真源**：[`docs/STATUS.md`](./docs/STATUS.md)
-- **决策留档**：[`docs/adr/`](./docs/adr/)（含「为什么从 iOS 转向 Android」）
-- **Android 测试机采购规格与验机清单**：[`docs/android-device-spec.md`](./docs/android-device-spec.md)
+- **决策留档**：[`docs/adr/`](./docs/adr/)（含「为什么转向 Android」**与**「为什么切回 iOS」）
+- **iPhone 8 采购规格与验机清单**：[`docs/ios/device-spec.md`](./docs/ios/device-spec.md)
+- **iOS 技术链路与 Hook 点**：[`docs/ios/tech-chain.md`](./docs/ios/tech-chain.md)
 
 ## 一句话定义
 
@@ -100,10 +103,10 @@ BSSIDGhost/
 │   │   ├── bssid_map.json    # BSSID 映射表（真实值 → 伪造值）+ 日志设置
 │   │   └── targets.json      # 目标 App 作用域与测试授权记录（授权闸的输入）
 │   └── vectors/              # 语言中立测试向量（110 条断言：两端必须同结论）
-├── android/                  # 【当前主线】Android 实现
-│   └── README.md             # 选型、候选 Hook 点、纪律（R14 起填充实现）
-├── ios/                      # 【冻结】iOS 实现（代码保留、不再投入）
-│   ├── README.md             # 冻结说明与回滚方式
+├── android/                  # 【已暂停冻结】Android 实现（代码全保留，随时可解冻）
+│   └── README.md             # 冻结说明 + 解冻后的路线图
+├── ios/                      # 【当前主线】iOS 实现
+│   ├── README.md             # 实现说明（曾冻结，R14 解冻）
 │   ├── hooks/                # 纯 C 核心（Rules/Auth）+ ObjC 胶水 + Hook 注册
 │   ├── layout/               # theos 安装布局（rootless → /var/jb）
 │   ├── Makefile, control     # theos 打包与 deb 元信息
@@ -129,13 +132,17 @@ BSSIDGhost/
 
 ## 当前状态
 
-**iOS 版已冻结；Android 版 R12–R13 完成（目录、选型、两端共用的行为向量），尚无任何真机动作。**
+**主线是 iOS（R14 切回）；主机侧 251 项断言全绿，但尚无任何真机动作；Android 暂停冻结。**
 
-- iOS 冻结在冻结点（tag **`ios-r11-host-verified`**，当时 141 项主机断言全绿）；
-  该套件在 R13 后已扩到 **251 项断言**（新增 110 条语言中立向量）并保持全绿；
-- Android 的**编译链已在 R12 端到端实测**（本机打出并签名 APK，签名验证通过），
-  但**从未在 Android 设备上安装运行过**；
-- 卡点是**测试机未到位**（采购规格已就绪），不是技术方案。
+- **决策发生过两次反转**，都留了档：
+  [ADR-0001](./docs/adr/0001-pivot-to-android.md)（R12 转向 Android）→
+  [ADR-0002](./docs/adr/0002-return-to-ios.md)（R14 切回 iOS，**并修正了一个错误的越狱结论**）；
+- **R14 的更正**：项目曾用「palera1n 排除 arm64e」错误地否定 iPhone 8 / X。
+  实测与官方文档核对后确认 **iPhone 8 可行**，且 Dopamine 支持 A8–A11（rootless `/var/jb`）
+  —— **iOS 侧代码一行都不用改**；
+- 主机侧 **251 项断言**（含 110 条 R13 落地的**语言中立向量**）全绿；
+  iOS 侧**从未在真实 iOS SDK 上编译过**，也**没有任何真机动作**；
+- 卡点是**测试机未到位**（采购规格与验机清单已就绪），不是技术方案。
 
 > **授权闸不放宽**：`shared/config/targets.json` 的授权字段未填齐前，
 > 两端的 build / deploy / Hook 一律拒绝执行；助手不代填授权字段。

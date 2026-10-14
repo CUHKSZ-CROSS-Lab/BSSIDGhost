@@ -12,7 +12,7 @@
 | # | 要准备的东西 | 关键参数 | 核实程度 |
 |---|---|---|---|
 | 1 | 一台 iPhone/iPad（**已越狱**） | 见 §1 的机型/版本矩阵 | ✅ 官方支持矩阵 |
-| 2 | iOS 版本 | **推荐 15.0–16.6.1**（理由见 §1） | ✅ |
+| 2 | iOS 版本 | **目标机型 iPhone 8（A11）；优先买已在 ≤16.6.1 的机器**（可用 TrollStore 免重签），16.7.16 为备案（见 §1） | ✅ 官方支持矩阵 + ipsw.me 实测 |
 | 3 | 越狱工具 | **Dopamine（rootless）**，装完有 Sileo | ✅ 官方站点 + cfw.guide |
 | 4 | 设备端编译器 | Sileo 装 **`clang-16`**（LLVM 16.0.0 / Swift 5.9.2 分支） | ✅ 包索引 + 构建配方 |
 | 5 | 设备端链接器 | Sileo 装 **`ld64`**（609-3）—— 装 `clang-16` 时会自动带上 | ✅ 包索引（依赖关系） |
@@ -29,9 +29,12 @@
 
 ## 1. 该准备哪台机器、哪个 iOS 版本
 
-> ⚠️ **先看设备选型**：如果你的机器是 **A14–A17 且系统在 18/26**，Dopamine 不支持、palera1n 更是永久排除 arm64e。
-> 已经确认用户手上的 **iPhone 12（A14 / iOS 26）落在缺口里**，选机与降级可行性分析见
-> [`handoff-device-jailbreak.md`](handoff-device-jailbreak.md)。**先定设备，再谈本节。**
+> ⚠️ **先看设备选型（R14 已定）**：目标机型 **iPhone 8（A11）**，越狱工具 **Dopamine**，
+> iOS 版本**优先 ≤16.6.1**（可用 TrollStore → Dopamine 免每 7 天重签）。
+> 完整采购规格、验机命令与风险见 [`device-spec.md`](device-spec.md)；
+> 「为什么 iPhone 12 被否」「palera1n/arm64e 那个错误推论是怎么修的」见
+> [`handoff-device-jailbreak.md`](handoff-device-jailbreak.md)（含 §2.1 校正）。
+> **A14–A17 且系统在 18/26 的机器仍然不适用**（Dopamine 不支持、palera1n 需 checkm8）。
 
 ### 1.1 Dopamine 官方支持矩阵
 

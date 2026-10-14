@@ -166,8 +166,13 @@ $(printf '%s\n' "${COMMITS}" | sed 's/^/- /')
 
 ## 已知边界（不要误读为"已完成"）
 
-- **没有任何代码在真实 iOS SDK 上编译或链接过**（BG-032 编译链落点未决）；
-  \`ios/hooks/*.m\` 只到语法检查，\`ios/scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）
+- **没有任何代码在真实 iOS SDK 上编译或链接过**（这是当前最大的空洞）；
+  \`ios/hooks/*.m\` 只到语法检查，\`ios/scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）。
+  编译链落点**已在 R9 定为方案 C**（设备端 Procursus 工具链），等待设备到位后执行
+- **主线已于 R14 切回 iOS**（iPhone 8 + Dopamine）；Android 暂停冻结但代码全保留。
+  两次反转的决策留档见 \`docs/adr/0001-pivot-to-android.md\` 与 \`docs/adr/0002-return-to-ios.md\`
+- ⚠️ **打包前先确认飞书真实 BundleID（BG-061）**：配置里是 \`com.ss.iphone.ugc.Lark\`，
+  而 App Store 显示为 \`com.bytedance.ee.lark\`；写错会导致插件**静默不注入**
 - 真机线未解锁：\`shared/config/targets.json\` 的授权字段仍为 \`fill_me\`，
   授权闸会拒绝 build / deploy / Hook（这是刻意设计，见 \`ios/hooks/BGGhostAuth.c\`）
 - 来自外部资料的结论（nehelper XPC）一律标注「待真机验证」，

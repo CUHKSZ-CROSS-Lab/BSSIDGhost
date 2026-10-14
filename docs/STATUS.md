@@ -17,15 +17,28 @@
 | R8 | 交接方案（BG-040：RESUME/bootstrap/publish）+ 修复换 Mac 后的 ObjC 假通过风险 | ✅ 完成 |
 | R9 | **BG-032 决策落地：选定方案 C（设备端 Procursus 工具链）** + 设备准备 SOP（BG-043） | ✅ 完成 |
 | R10 | 设备选型与越狱：用户 iPhone 12 / A14 / iOS 26 落在可越狱缺口里 | ⛔ 关闭（结论已留档，路线作废） |
-| R11 | iOS 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⛔ 冻结（随 iOS 版一起冻结） |
-| **R12** | **转向 Android：ADR 留档 + 冻结 iOS + 单仓双端重构 + 修两个真实缺陷** | ✅ 完成 |
-| **R13** | **语言中立测试向量落地（`shared/vectors/`）+ 日志路径按平台取值** | ✅ 完成 |
-| R14 | Android Java 核心（映射 + 授权闸）+ 本机构建链脚本 + 主机单测 | ⏳ 待开始（不需要设备） |
-| R15 | Frida 只读抓栈：确认飞书实际走哪条 Wi-Fi 信息通道（等价 iOS 的 BG-011） | ⏳ 阻塞于测试机 |
-| R16 | LSPosed 模块实现 + 部署 + 端到端 T1–T10 | ⏳ 阻塞于 R15 |
+| R11 | iOS 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ▶️ 重新激活（见 R14） |
+| R12 | 转向 Android：ADR 留档 + 冻结 iOS + 单仓双端重构 + 修两个真实缺陷 | ✅ 完成（**主线判断已被 R14 取代**） |
+| R13 | 语言中立测试向量落地（`shared/vectors/`）+ 日志路径按平台取值 | ✅ 完成（**跨端资产，继续有效**） |
+| **R14** | **主线切回 iOS：ADR-0002 + 修正越狱结论 + iPhone 8 设备规格与验机清单；Android 暂停冻结** | ✅ 完成 |
+| **R15** | **iOS 真机执行：买机（≤16.6.1）→ Dopamine 越狱 → 设备端编译 → 装 deb → 跑 T1–T10** | ⏳ **阻塞于测试机** |
+| R16 | （原 iOS）Frida 抓栈确认 Wi-Fi 信息通道（BG-011）→ Hook 框架选型（BG-030） | ⏳ 阻塞于 R15 |
 
-> **主线已从 iOS 切到 Android**（[ADR-0001](adr/0001-pivot-to-android.md)，R12）。
-> iOS 相关任务状态一律记为 `frozen`——**保留代码与证据，不再推进**。
+> ## 主线：**iOS**（R14 起）
+> 目标机型 **iPhone 8（A11）**，越狱工具 **Dopamine**，iOS **优先 ≤16.6.1**。
+> 采购规格、TrollStore 边界与验机命令见 [`docs/ios/device-spec.md`](ios/device-spec.md)；
+> 决策留档见 [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md)。
+>
+> **Android 已暂停冻结但完整保留**（[`android/README.md`](../android/README.md)）。
+> 冻结时它的路线图停在 R14–R16，那些任务号**不再占用 `R` 编号**，见任务板末尾的「冻结中」。
+
+### 本轮最大的教训（值得单独记一笔）
+
+R10 那轮用「palera1n 明确排除 arm64e」把 **iPhone 8 / 8 Plus / X 一并否定**——
+**这个推论是错的**（那些机型本身就是 arm64e，而 palera1n 官方机型表里明确列着它们）。
+错误的根源是把一句概括性描述外推到整类机型，而没有回到官方**支持设备列表**核对。
+结果差点在 R12 白白转向 Android。修正与技术细节见
+[`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) §2.1。
 
 ## 任务板
 
@@ -59,11 +72,14 @@
 | BG-050 | 转向 Android：ADR 留档 + 冻结 iOS（tag `ios-r11-host-verified`）+ 单仓双端目录重构 | **done** | — | [`docs/adr/0001-pivot-to-android.md`](adr/0001-pivot-to-android.md)、[`ios/README.md`](../ios/README.md)、[`android/README.md`](../android/README.md)、[`shared/README.md`](../shared/README.md) |
 | BG-051 | 修复两个真实缺陷：`bootstrap.sh` 过期关键路径提示、任务板 BG-040 重号；并加装文档链接检查器守住重构 | **done** | BG-050 | [`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/check-links.sh`](../scripts/check-links.sh)（203 条内部链接全通过） |
 | BG-052 | Android 测试机采购规格与验机清单（机型/版本/root/命令，逐条附来源与性质） | **done** | — | [`docs/android-device-spec.md`](android-device-spec.md) |
-| BG-053 | 语言中立测试向量：把 C 断言抽成 `shared/vectors/` 数据，两端同跑（**110 条向量断言**） | **done** | BG-050 | [`shared/vectors/`](../shared/vectors/README.md)、[`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh)、[`vector_rules.c`](../ios/tests/host/vector_rules.c)、[`vector_auth.c`](../ios/tests/host/vector_auth.c) |
-| BG-054 | Android Java 核心（映射 + 授权闸）移植 + 主机单测（JVM 直接跑） | todo | BG-053 | — |
-| BG-055 | Android 本机构建链脚本（`javac` + `d8/R8` + `aapt2` + `apksig`）+ 骨架 APK | todo | BG-050 | R12 已手工实测整链可行（见轮次记录） |
-| BG-056 | Android 版 Frida 只读抓栈（确认飞书实际走的 Wi-Fi 信息通道） | blocked | BG-052（设备到位） | — |
-| BG-057 | LSPosed 模块实现（Vector + legacy API 82）+ 部署脚本 + 端到端 T1–T10 | todo | BG-054、BG-055、BG-056 | — |
+| BG-053 | 语言中立测试向量：把 C 断言抽成 `shared/vectors/` 数据，两端同跑（**110 条向量断言**）（跨端资产，继续有效） | **done** | BG-050 | [`shared/vectors/`](../shared/vectors/README.md)、[`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh)、[`vector_rules.c`](../ios/tests/host/vector_rules.c)、[`vector_auth.c`](../ios/tests/host/vector_auth.c) |
+| BG-054 | Android Java 核心（映射 + 授权闸）移植 + 主机单测（JVM 直接跑） | frozen | BG-053 | — |
+| BG-055 | Android 本机构建链脚本（`javac` + `d8/R8` + `aapt2` + `apksig`）+ 骨架 APK | frozen | BG-050 | R12 已手工实测整链可行（见轮次记录） |
+| BG-056 | Android 版 Frida 只读抓栈（确认飞书实际走的 Wi-Fi 信息通道） | frozen | BG-052（设备到位） | — |
+| BG-057 | LSPosed 模块实现（Vector + legacy API 82）+ 部署脚本 + 端到端 T1–T10 | frozen | BG-054、BG-055、BG-056 | — |
+| BG-059 | **主线切回 iOS：ADR-0002 + Android 冻结标记 + 修正被推翻的越狱结论** | **done** | — | [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md)、[`android/README.md`](../android/README.md) |
+| BG-060 | **iPhone 8 设备规格与验机清单**（Dopamine 选型 + TrollStore 边界 + 版本硬约束） | **done** | — | [`docs/ios/device-spec.md`](ios/device-spec.md) |
+| BG-061 | **核实并修正 iOS 目标 BundleID**：配置里是 `com.ss.iphone.ugc.Lark`，而 App Store 显示飞书为 `com.bytedance.ee.lark` | **todo** | 真机确认 | 证据见 [`device-spec.md`](ios/device-spec.md) §5；**过滤器写错会导致插件静默不注入** |
 | BG-058 | 日志路径按平台取值（`log.path` → `log.paths.{ios,android}`）+ 契约检查与反向验证 | **done** | BG-053 | [`shared/config/bssid_map.json`](../shared/config/bssid_map.json)、[`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) |
 
 ## 已确认环境事实（不要重复探测）
@@ -72,9 +88,12 @@
 
 | 项 | 结论 | 来源 |
 |---|---|---|
-| **当前主线** | **Android**（[ADR-0001](adr/0001-pivot-to-android.md)，R12 起） | 用户决策 |
+| **当前主线** | **iOS**（[ADR-0002](adr/0002-return-to-ios.md)，R14 起；R12–R13 曾短暂以 Android 为主线） | 用户决策 |
+| **目标设备** | **iPhone 8（A11）**，固件上限 **16.7.16**（Apple 至今仍在签名）；**优先买 ≤16.6.1** | [设备规格](ios/device-spec.md) |
+| **越狱工具** | **Dopamine**（rootless，semi-untethered，自带 Sileo/ElleKit）；palera1n 为备选 | 同上 |
+| **目标 App（iOS）** | 飞书，App Store 显示 **`com.bytedance.ee.lark`**（⚠️ 与配置不符，见 BG-061）；最低 iOS 13.0 | Apple lookup API |
 | **目标 App** | 国内版飞书 **`com.ss.android.lark`**（小米应用商店在架 **8.2.6**，2026-10-13 更新） | [设备规格](android-device-spec.md) §6 |
-| **目标设备** | 二手 Google Pixel 8 / 8a，固定 **Android 15（API 35）** | 用户 2026-10-14 选定 |
+| 目标设备（Android，已冻结） | 二手 Google Pixel 8 / 8a，固定 Android 15（API 35） | 用户 R12 选定，随冻结挂起 |
 | **注入路线** | 先 Frida 只读抓栈，再落 **LSPosed 模块** | 用户 2026-10-14 选定 |
 | **Hook 框架** | **Vector v2.2** + legacy XposedBridge **API 82**（官方 LSPosed 停在 v1.9.2，只到 Android 14） | [ADR-0001](adr/0001-pivot-to-android.md) §5 |
 | **Android 编译链** | **本机命令行**：`javac` + `d8/R8` + `aapt2` + `apksig`（镜像取件，无需 Android Studio） | R12 端到端实测 |
@@ -113,35 +132,125 @@
 
 ## 阻塞项（需要用户输入）
 
-1. **授权闸（两端共用）** —— `shared/config/targets.json` 的 6 个授权字段仍为 `fill_me`。
-   未填齐时 **Android 端同样拒绝构建与启用**。**助手不代填授权字段**，只在用户给出具体值后写入。
-2. **Android 测试机未到位（当前唯一硬阻塞）** —— 采购规格、root 方案与验机命令见
-   [`docs/android-device-spec.md`](android-device-spec.md)。用户已确认机型档位（二手 Pixel 8/8a）、
-   Android 版本（15 / API 35）与「有可访问 Google 的网络」，待实际采购。
-   阻塞范围：BG-056（Frida 抓栈）→ BG-057（模块实现与端到端）。
-3. **主机缺 frida 执行工具** —— 与 iOS 时期同一处境：无 CLI、Python 无 `pip`；
-   npm `frida@17.23.3` 走 npmmirror 可行但 R1 决定不装。**R15 之前需要一次性安装许可。**
-4. ~~iOS 设备 / 越狱 / 编译链~~ → **随 iOS 版冻结，不再是阻塞项**（[ADR-0001](adr/0001-pivot-to-android.md)）。
+1. **授权闸** —— `shared/config/targets.json` 的 6 个授权字段仍为 `fill_me`。
+   未填齐时 build / deploy / Hook 一律拒绝执行。**助手不代填授权字段**，只在用户给出具体值后写入。
+2. **iPhone 8 未到位（当前唯一硬阻塞）** —— 采购规格、版本硬约束与验机命令见
+   [`docs/ios/device-spec.md`](ios/device-spec.md)。关键约束：**优先买已在 ≤16.6.1 的机器**
+   （才能用 TrollStore 免每 7 天重签），而 **Apple 只签 16.7.16，退不回去**。
+   阻塞范围：R15 全部真机任务（越狱 → 设备端编译 → 装包 → T1–T10 → BG-011 抓栈）。
+3. **BG-061：iOS 目标 BundleID 待真机确认** —— 配置里是 `com.ss.iphone.ugc.Lark`，
+   而 App Store 元数据显示飞书是 `com.bytedance.ee.lark`。
+   **在确认之前不要打包**：过滤器写错 BundleID 的插件不会注入，而且**不报错**（静默失效）。
+4. **主机缺 frida 执行工具** —— 无 CLI、Python 无 `pip`；npm `frida@17.23.3` 走 npmmirror 可行。
+   **BG-011 抓栈前需要一次性安装许可。**
+5. ~~编译链落点（BG-032）~~ → 已定方案 C；~~iOS 设备不可得~~ → **已被 R14 推翻**（iPhone 8 可行）。
+   Android 侧阻塞随冻结挂起。
 
-## 下一轮（R14）：Android Java 核心 + 本机构建链（不需要设备）
+## 下一轮（R15）：iOS 真机执行（**由设备驱动**）
 
-R13 已把「两端必须一致的行为」变成机器可校验的向量，R14 要产出**消费它的第二个实现**。
+R14 之后，**iOS 侧所有能脱离设备做的事都已做完**：
+主机侧 251 项断言全绿、文档与结论已校正、设备规格与验机清单就绪。
+**下一步必须等机器。**
 
-1. **Java 核心移植**：`BGGhostRules`（归一化 / 格式跟随 / 规则匹配 / default / nil 语义）与
-   `BGGhostAuth`（授权闸与作用域判定）——**判定顺序与短路规则一字不改**；
-2. **JVM 主机单测**：直接读 `shared/vectors/*.json`，与 C 端**逐条比对结论**；
-   向量断言数不得少于 110；
-3. **构建脚本** `android/scripts/build.sh`：`javac` → `d8` → `aapt2` → `apksig`，
-   构件走可达镜像（R12 已手工验证整链可行），产出可安装的骨架 APK；
-4. **授权闸接入构建入口**：`fill_me` 未填齐即拒绝构建（与 iOS 侧同语义）；
-5. 日志：按 `log.paths` 的平台语义实现（Android 主通道 logcat，文件路径用运行期私有目录）。
+用户选定**不安装**本机 theos/SDK/ldid，因此真编译走 R9 已定的
+**方案 C（设备端 Procursus 工具链）**，与真机任务合并进行。
 
-> **R15 起需要设备**：Frida 抓栈确认飞书实际走哪条 Wi-Fi 信息通道，拿到结论后才写 Hook
-> （避免像 iOS 那样先占位再返工）。
+执行顺序（详见 [`docs/ios/device-spec.md`](ios/device-spec.md) 与
+[`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md)）：
+
+1. **采购**（用户）：iPhone 8 / 8 Plus，**优先已在 ≤16.6.1**（可用 TrollStore）；
+   验机第一项就是版本，其次激活锁；
+2. **越狱**（用户）：Dopamine（rootless）→ Sileo 装 ElleKit + PreferenceLoader；
+   ≤16.6.1 再装 TrollStore 免重签；
+3. **设备端工具链**：`clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk`；
+4. **顺手确认 BG-061**：设备上确认真实 BundleID，修正 `scope.bundle_ids`
+   （**在此之前不要打包**——写错 BundleID 的插件不会注入且不报错）；
+5. **编译**：`bash ios/scripts/build.sh --toolchain theos`（⚠️ 会先过授权闸，
+   `shared/config/targets.json` 仍是 `fill_me` 时会拒绝构建）；
+6. **装包并跑 T1–T10** + BG-011 Frida 抓栈（App 与 nehelper 两步 attach）。
+
+> **仍需用户提供**：授权字段（6 项，助手不代填）、一台 iPhone 8（≤16.6.1 优先）、
+> 以及 frida 的一次性安装许可。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R14（2026-10-14）主线切回 iOS：修正被推翻的越狱结论 + iPhone 8 设备规格
+
+**用户决策**：采购 iPhone 8；**暂时冻结 Android**；继续推进 iOS。
+
+**一、本轮最重要的事：纠正项目自己的一个错误结论**
+
+[`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) 原稿写：
+
+> palera1n「arm64（**arm64e 明确排除**）；设备仅到 A11 及以下（iPhone 8/8 Plus/X…）」
+
+**这句话自相矛盾**（iPhone 8/8 Plus/X 本身就是 arm64e），并且因此把 iPhone 8/X 一并否定。
+第一手核对 palera1n man page 后确认：
+
+```
+jailbreaks an arm64 (arm64e excluded) … utilizing the checkm8 bootROM exploit.
+On A11 devices, that is, iPhone 8, iPhone 8 Plus and iPhone X, the passcode cannot be used.
+.Sh SUPPORTED DEVICES
+.It iPhone 8
+.It iPhone 8 Plus
+.It iPhone X
+…
+arm64e devices will NEVER be supported.
+```
+
+判别依据：**不会给不支持的设备写专门一节**。palera1n 文档措辞不严谨——把 A8–A11 叫 "arm64"、
+A12+ 叫 "arm64e"。**对 iPhone 12 的结论（不能越狱）仍然成立，但理由是 A14 不在 checkm8 范围，
+不是 arm64e。** 已写进文档 §2.1，并新增纪律：判断机型能否越狱必须回到官方**支持设备列表**核对，
+不能从一句概括性描述外推。
+
+**二、iPhone 8 可行性：可行，而且比原计划更好**
+
+| 事实 | 来源 | 性质 |
+|---|---|---|
+| **Dopamine 支持 A8–A11**（官网原文 `arm64 (A8 - A11)`）、**rootless**、A8–A13 覆盖 iOS 15.0–18.7.1 | [ellekit.space/dopamine](https://ellekit.space/dopamine/) | ✅ 官方 |
+| palera1n 支持 **A8 through A11**，机型表含 iPhone 8 / 8 Plus | [palera1n](https://github.com/palera1n/palera1n) 描述 + README + man page | ✅ 官方 |
+| iPhone 8/8P/X 固件 **11.0/11.1 → 16.7.16**，且 **Apple 至今仍签名 16.7.16** | ipsw.me 实测（6 个型号） | ✅ 实测 |
+| TrollStore 支持 14.0b2–**16.6.1** / 16.7 RC / 17.0；**16.7.x 正式版永不支持** | [TrollStore README](https://github.com/opa334/TrollStore) | ✅ 官方 |
+| iOS **16.7+** 上 Dopamine 需**每 7 天重签**；≤16.6.1 可 TrollStore 免签 | [cfw.guide](https://ios.cfw.guide/installing-dopamine/) | 🟡 权威社区 |
+| 飞书 iOS = **`com.bytedance.ee.lark`**，最低 **iOS 13.0**，`supportedDevices` **含 iPhone 8** | Apple lookup API（`id=1401729613`） | ✅ 官方 API |
+
+**关键点**：Dopamine 是 **rootless + `/var/jb`**，与仓库现有假设**完全一致**
+（`THEOS_PACKAGE_SCHEME=rootless`、`layout/`、`deploy.sh`、`control` 的 `depends: ellekit`），
+**iOS 侧代码一行都不用改**。
+
+**三、发现一处**疑似真实缺陷**（BG-061，未擅自改）**
+
+配置里 `scope.bundle_ids = "com.ss.iphone.ugc.Lark"`，而 App Store 元数据显示飞书是
+**`com.bytedance.ee.lark`**（`com.ss.iphone.ugc.*` 是字节更早的命名，如抖音）。
+**若真机确认如此，theos 过滤器会写错 BundleID → 插件根本不注入，而且不报错。**
+处置：先同时包含两个 ID，真机确认后再收敛。已记入[设备规格](ios/device-spec.md) §5 与任务板。
+
+**四、交付物**
+
+| 文件 | 内容 |
+|---|---|
+| [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md) | 主线切回 iOS 的决策留档；含**被推翻的错误结论**与"没有改变的东西" |
+| [`docs/ios/device-spec.md`](ios/device-spec.md) | iPhone 8 采购规格：版本硬约束、TrollStore 边界、Dopamine/palera1n 对比、安装 SOP、验机命令、风险、逐条来源 |
+| [`docs/ios/handoff-device-jailbreak.md`](ios/handoff-device-jailbreak.md) | §0 校正横幅 + §2.1 错误推论的完整修正 + §4 路线表重排 + §5 已解决项 |
+| [`docs/ios/ondevice-build-setup.md`](ios/ondevice-build-setup.md) | 机型/版本推荐改写为 iPhone 8 + Dopamine；**顺带修掉 §1.3 里同类的 arm64e 错误表述** |
+| [`android/README.md`](../android/README.md) | 冻结横幅（冻结≠删除，随时可解冻） |
+
+**五、验证**
+
+```
+$ bash ios/tests/host/run.sh      -> 251 项断言，0 失败（文档改动未破坏任何检查）
+$ bash scripts/check-links.sh -v  -> 245 条内部链接，无断链
+```
+
+**六、诚实标注**
+
+- **完全没有真机动作**：iPhone 8 尚未采购，越狱、编译、抓栈都未发生；
+- Dopamine 是否要求关闭密码，官方文档未提 → **待实测**；
+- 飞书是否有越狱检测，**未查到任何可靠来源**（不编造）；
+- 二手价位**是推断**，本次未取得可靠成交价数据；
+- 设备规格 §10 列出 **11 项必须真机实测**才能确认的事。
 
 ### R13（2026-10-14）语言中立测试向量落地 + 日志路径按平台取值
 

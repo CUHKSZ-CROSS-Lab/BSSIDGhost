@@ -13,10 +13,12 @@ bash scripts/bootstrap.sh
 完整恢复指南见 [`RESUME.md`](./RESUME.md)（含**换到 macOS 后的专门说明**）。
 同步到远端：`bash scripts/publish.sh --dry-run` 看计划，去掉 `--dry-run` 执行。
 
-> ⚠️ **主线已于 R12 从 iOS 切到 Android**，先读
-> [`docs/adr/0001-pivot-to-android.md`](./docs/adr/0001-pivot-to-android.md)。
-> 下一步是**采购 Android 测试机**：规格与验机命令见
-> [`docs/android-device-spec.md`](./docs/android-device-spec.md)。iOS 版已冻结。
+> ⚠️ **主线已是 iOS**（R14 切回；R12–R13 曾短暂以 Android 为主线）。先读
+> [`docs/adr/0002-return-to-ios.md`](./docs/adr/0002-return-to-ios.md)——
+> 它同时记录了**被推翻的旧结论**（palera1n「arm64e 排除」其实不含 A11）。
+> 下一步是**采购 iPhone 8**：版本硬约束、Dopamine SOP 与验机命令见
+> [`docs/ios/device-spec.md`](./docs/ios/device-spec.md)。
+> Android 已暂停冻结（代码与文档全部保留）。
 
 ## 1. 项目定义（已确认，跨端不变）
 
@@ -53,32 +55,38 @@ iOS 版实现已冻结（目标 App 曾是 iOS 版飞书 `com.ss.iphone.ugc.Lark
 | 目录组织 | 单仓双端：`shared/`（规格与配置）+ `ios/`（冻结）+ `android/`（主线）——[ADR-0001](./docs/adr/0001-pivot-to-android.md) |
 | 编号体系 | `R` 轮次与 `BG-xxx` 任务号**延续**，不另起一套（iOS 历史不断链） |
 
-### 2.2 Android（当前主线）
+### 2.2 iOS（**当前主线**）
 
 | 项 | 结论 |
 |---|---|
-| 目标 App / 包名 | 国内版飞书 **`com.ss.android.lark`**（**不是**国际版 Lark `com.larksuite.suite`） |
-| 注入路线 | 先 **Frida 只读抓栈**确认落点，再落 **LSPosed 模块** |
-| Root 方案 | **Magisk v30.7 stable** + 内置 Zygisk |
-| Hook 框架 | **Vector v2.2**（官方 LSPosed 已停更，只到 Android 14） |
-| 模块 API | **legacy XposedBridge API 82** 为主 |
-| 目标设备 | 二手 **Google Pixel 8 / 8a**，固定 **Android 15（API 35）** |
-| 编译链 | **本机命令行**：`javac` + `d8/R8` + `aapt2` + `apksig`（R12 已端到端实测，无需 Android Studio） |
-| Hook 点候选 | P0 `WifiInfo.getBSSID()`（经 `getConnectionInfo()` 或 `NetworkCapabilities.getTransportInfo()`）；P1 `ScanResult.BSSID`；**不 hook 飞书的混淆类** |
-
-### 2.3 iOS（冻结存档，不再讨论）
-
-| 项 | 结论 |
-|---|---|
+| 目标 App / BundleID | 国内版飞书。App Store 元数据显示 **`com.bytedance.ee.lark`**（最低 iOS 13.0）；⚠️ 但配置里目前是 `com.ss.iphone.ugc.Lark`，**待真机确认（BG-061）**。**不是**国际版 Lark `com.larksuite.lark` |
+| 目标设备 | **iPhone 8（A11）**；固件上限 **16.7.16**（Apple 至今仍签名）；**优先买已在 ≤16.6.1 的机器** |
+| 越狱工具 | **Dopamine**（rootless、semi-untethered、自带 Sileo），palera1n 为备选 |
+| 越狱形态 | rootless，前缀 **`/var/jb`** —— 与仓库现有假设完全一致（代码不用改） |
 | 注入库名 | `libbssidghost.dylib`（theos 产物为 `BSSIDGhost.dylib`） |
-| BundleID | `com.<team>.bssidghost`（目标 App 为 `com.ss.iphone.ugc.Lark`） |
-| Hook 点优先级 | P0 `CoreWLAN`/`CWFInterface`；P1 `NEHotspotNetwork`、`CNCopyCurrentNetworkInfo`；P2 `CWWiFiClient`、`getifaddrs` |
-| 越狱形态 | Dopamine / rootless，iOS 15.0–16.6.x，前缀 `/var/jb` |
-| 编译链 | 方案 C：越狱设备上用 Procursus 工具链就地编译（未实跑） |
+| 插件 BundleID | `com.<team>.bssidghost` |
+| Hook 框架 | **ElleKit**（Dopamine 与 palera1n 都落在它上；官方 README 明示 "Used by: palera1n (A8-A11)"，且提供 Substrate/libhooker 兼容层 → 旧 `MSHook*` 写法可用） |
+| Hook 点优先级 | P0 `CoreWLAN`/`CWFInterface`；P1 `NEHotspotNetwork`、`CNCopyCurrentNetworkInfo`；P2 `CWWiFiClient`、`getifaddrs`。注意 `nehelper` 可能是**统一后端**（见 [`docs/ios/tech-chain.md`](./docs/ios/tech-chain.md) §2） |
+| 编译链 | 方案 C：越狱设备上用 Procursus 工具链就地编译（**未实跑**） |
+
+> 采购的版本硬约束与验机命令见 [`docs/ios/device-spec.md`](./docs/ios/device-spec.md)。
+
+### 2.3 Android（已暂停冻结，不要重复讨论）
+
+| 项 | 结论 |
+|---|---|
+| 目标 App / 包名 | 国内版飞书 `com.ss.android.lark` |
+| 注入路线 | 先 Frida 只读抓栈，再落 LSPosed 模块 |
+| Root | Magisk v30.7 stable + 内置 Zygisk |
+| Hook 框架 | Vector v2.2 + legacy XposedBridge API 82 |
+| 目标设备 | 二手 Google Pixel 8 / 8a，固定 Android 15（API 35） |
+| 编译链 | 本机命令行 `javac` + `d8/R8` + `aapt2` + `apksig`（R12 端到端实测通过，无需 Android Studio） |
+| Hook 点候选 | P0 `WifiInfo.getBSSID()`（经 `getConnectionInfo()` 或 `NetworkCapabilities.getTransportInfo()`）；P1 `ScanResult.BSSID`；**不 hook 飞书的混淆类** |
+| 冻结范围 | BG-054 – BG-057 全部 `frozen`；代码/文档/设备规格全部保留 |
 
 ## 3. 当前状态
 
-**阶段：iOS 版已冻结；Android 版 R12–R13 完成（主机侧 251 项断言全绿），尚未有真机动作。**
+**阶段：主线 iOS（R14 切回）；主机侧 251 项断言全绿，但尚无任何真机动作；Android 暂停冻结。**
 
 > **进度真源已迁移到 [`docs/STATUS.md`](./docs/STATUS.md)**（任务板 `BG-xxx` + 轮次记录 + 环境事实 + 阻塞项）。
 > 本文件保留交接语义：定义、已定决策、风险、下一步。**每轮结束两个文件都要更新。**
@@ -175,33 +183,37 @@ iOS 版实现已冻结（目标 App 曾是 iOS 版飞书 `com.ss.iphone.ugc.Lark
 
 ## 4. 未决事项（需要用户输入）
 
-### 4.1 Android 主线（当前）
+### 4.1 iOS 主线（当前）
 
-- **Android 测试机未到位（唯一硬阻塞）** —— 采购规格、验机命令与风险清单见
-  [`docs/android-device-spec.md`](./docs/android-device-spec.md)。用户已定档位
-  （二手 Pixel 8/8a）、版本（Android 15 / API 35）、并确认**有可访问 Google 的网络**
-  （这关系 OEM 解锁能否成功）。**待实际采购。**
+- **iPhone 8 未到位（唯一硬阻塞）** —— 采购规格、**版本硬约束**与验机命令见
+  [`docs/ios/device-spec.md`](./docs/ios/device-spec.md)。
+  关键：**优先买已在 ≤16.6.1 的机器**（才能用 TrollStore 免每 7 天重签），
+  而 **Apple 只签 16.7.16，买错了退不回去**（除非有该机 ECID 的 SHSH2 blobs）。
+  阻塞范围：R15 全部真机任务（越狱 → 设备端编译 → 装包 → T1–T10 → BG-011 抓栈）。
+- **BG-061：iOS 目标 BundleID 待真机确认** —— 配置里是 `com.ss.iphone.ugc.Lark`，
+  App Store 元数据显示飞书是 `com.bytedance.ee.lark`。
+  **确认之前不要打包**：过滤器写错 BundleID 的插件不会注入，而且**不报错**。
 - **目标 App 授权状态未确认** —— `shared/config/targets.json` 的 `authorization` 字段全为 `fill_me`。
   决策：**先按未授权处理**；**助手不代填**，只在用户给出具体值后写入。
-  闸门实现已在 `ios/hooks/BGGhostAuth.c`（36 条单测），Android 端将移植同一套语义。
-- **主机缺少 frida 执行工具** —— 与 iOS 时期同一处境（无 CLI、Python 无 `pip`；
-  npm `frida@17.23.3` 走 npmmirror 可行）。R15 抓栈前**需要一次性安装许可**。
-- **飞书实际走哪条 Wi-Fi 信息通道未验证** —— 这是 R15 的任务；
-  **在此之前不要写 Hook 实现**（iOS 的教训：先占位再返工）。
-- **飞书是否有 root/Xposed 检测未验证**；`WifiInfo.getBSSID()` 在 Android 15 上
-  究竟要求 `ACCESS_FINE_LOCATION` 还是 `NEARBY_WIFI_DEVICES` 也**待实测**。
+  闸门已落地在 [`ios/hooks/BGGhostAuth.c`](./ios/hooks/BGGhostAuth.c)（36 条单测 + 向量）。
+- **主机缺少 frida 执行工具** —— 无 CLI、Python 无 `pip`；npm `frida@17.23.3` 走 npmmirror 可行。
+  **BG-011 抓栈前需要一次性安装许可。**
+- **飞书实际走哪条 Wi-Fi 信息通道未验证** —— 这是 BG-011 的任务；
+  **在此之前不要写 Hook 实现**（iOS 的历史教训：先占位再返工）。
+- **Dopamine 是否要求关闭密码** —— 官方文档未提（palera1n 在 A11 上明示要求关闭）→ **待实测**。
+- **飞书是否有越狱检测** —— **未查到任何可靠来源**，不编造；真机实测后回写。
+- **命名细节（低优先级）**：theos 产物名 `BSSIDGhost.dylib` 与 `libbssidghost.dylib` 并存，
+  见 [`docs/naming.md`](./docs/naming.md)。
 
-### 4.2 iOS（已冻结，不再作为未决项）
+### 4.2 Android（已冻结，不再是未决项）
 
-- ~~测试机 / 越狱 / 编译链 / Hook 框架~~ → **随 iOS 版冻结**，
-  历史结论见 [`docs/ios/handoff-device-jailbreak.md`](./docs/ios/handoff-device-jailbreak.md)
-  与 [`docs/STATUS.md`](./docs/STATUS.md) 的 R1–R9 轮次记录。
-- **命名细节（已无实际影响）**：theos 产物名固定为 `BSSIDGhost.dylib`，
-  与 `libbssidghost.dylib` 并存为「两条路线两个名字」，见 [`docs/naming.md`](./docs/naming.md)。
+- ~~Android 测试机 / 注入路线 / 编译链~~ → **随冻结挂起**，
+  历史结论见 [`docs/android-device-spec.md`](./docs/android-device-spec.md)、
+  [`android/README.md`](./android/README.md) 与 R12–R13 轮次记录。**代码与文档全部保留。**
 
 ## 5. 已识别的技术风险
 
-> 前 5 条是 iOS 时期的分析，**其抽象结论在 Android 端同样成立**（已按平台改写）。
+> 下面是跨端的技术风险。**主线是 iOS**，Android 侧的对应形态仅作备查。
 
 1. **交叉校验**：若目标 App 同时用多个 Wi-Fi 接口、公网出口 IP、mDNS、ARP 或后端白名单比对，
    单点 Hook 会被识破。落地前须枚举其全部网络身份采集点。
@@ -227,24 +239,21 @@ iOS 版实现已冻结（目标 App 曾是 iOS 版飞书 `com.ss.iphone.ugc.Lark
 > （见 `~/.dsh/storages/workspace.json`）。**新对话仍请从该路径启动**，
 > 这样项目内 skill 根（`.dsh/skills`）与项目根解析都会确定命中。
 
-## 7. 建议的下一步（R14）
+## 7. 建议的下一步（R15，**由设备驱动**）
 
-**主线是 Android**，且 **R14 不需要设备**——采购测试机的这段时间可以一直推进。
+R14 之后，**iOS 侧能脱离设备做的事已经做完**：主机侧 251 项断言全绿、结论已校正、
+设备规格与验机清单就绪。**下一步必须等机器。**
 
-| 轮次 | 做什么 | 需要设备 |
+| 步骤 | 谁做 | 内容 |
 |---|---|---|
-| ~~R13~~ | ~~语言中立测试向量~~ → ✅ 已完成（110 条向量断言，总断言 251） | — |
-| **R14** | Java 核心（映射 + 授权闸）移植 + JVM 主机单测（**消费同一份向量**）+ `android/scripts/build.sh`（本机出 APK） | ❌ |
-| **R15** | Frida 只读抓栈：确认飞书实际走哪条 Wi-Fi 信息通道 | ✅ |
-| **R16** | LSPosed 模块实现 + 部署 + 端到端 T1–T10 | ✅ |
+| 1. 采购 | 用户 | iPhone 8（**优先 ≤16.6.1**；8 Plus 是 3GB 内存更稳）。验机见 [`docs/ios/device-spec.md`](./docs/ios/device-spec.md) §7 |
+| 2. 越狱 | 用户 | Dopamine（rootless）→ Sileo 装 ElleKit + PreferenceLoader；≤16.6.1 再装 TrollStore 免重签 |
+| 3. 确认 BundleID | 用户 + 助手 | 设备上确认飞书真实 BundleID（**BG-061**），修正 `scope.bundle_ids` |
+| 4. 设备端工具链 | 用户 | `clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk`（[SOP](./docs/ios/ondevice-build-setup.md)） |
+| 5. 编译 | 双方 | `bash ios/scripts/build.sh --toolchain theos`（⚠️ 先过授权闸） |
+| 6. 验证 | 双方 | 装包 → 冷启动飞书 → 看日志 → 跑 T1–T10；再按 `tech-chain` §2.2 两步 attach 抓栈 |
 
-**并行待你办理**：按 [`docs/android-device-spec.md`](./docs/android-device-spec.md) 采购测试机
-（二手 Pixel 8/8a、Android 15、无锁版），并在 R15 之前给出**安装 frida 的一次性许可**。
-
-**可选（不改变成熟度）**：命名决策收尾、`verify.sh` 设备侧细化、`map-sim --explain` 之类边角打磨。
-
-> ⚠️ 不要再把 BG-032「编译链落点」当未决项——它在 R9 已定为方案 C，
-> 且 Android 端的编译链 R12 已端到端实测通过，**根本不存在这个纠结**。
+> 用户已选定**不安装**本机 theos/SDK/ldid，因此真编译与真机任务**合并进行**（方案 C）。
 
 ## 8. R1 调研结论：skill / plugin 机制（本会话实测）
 

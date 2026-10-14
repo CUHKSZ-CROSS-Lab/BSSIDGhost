@@ -204,28 +204,34 @@ echo
 cat <<'EOF'
 ==> 接下来做什么
 
-当前主线：**Android 版**（iOS 版已冻结，见 docs/adr/0001-pivot-to-android.md）
+当前主线：**iOS 版**（R14 起；Android 已暂停冻结，见 docs/adr/0002-return-to-ios.md）
 
 读取顺序（新会话 / 新机器都按这个来）：
-  1. RESUME.md              5 分钟跑通 + 当前进度与缺口
-  2. HANDOFF.md             交接备忘：已定决策、风险、未决事项
-  3. docs/STATUS.md         进度真源：任务板 BG-xxx + 阻塞项
-  4. docs/adr/              决策留档（含「为什么从 iOS 转向 Android」）
-  5. docs/ios/tech-chain.md iOS 链路与 Hook 点（冻结参考）
+  1. RESUME.md                    5 分钟跑通 + 当前进度与缺口
+  2. HANDOFF.md                   交接备忘：已定决策、风险、未决事项
+  3. docs/STATUS.md               进度真源：任务板 BG-xxx + 阻塞项
+  4. docs/adr/0002-return-to-ios.md   为什么主线切回 iOS（含被推翻的旧结论）
+  5. docs/ios/device-spec.md      iPhone 8 采购规格 + 越狱方案 + 验机命令
+  6. docs/ios/tech-chain.md       iOS 链路与 Hook 点（§2.2 是可证伪实验）
 
-当前关键路径（Android 侧）：
-  设备未就位 —— 采购规格、root 方案与验机命令见 docs/android-device-spec.md
-  注入路线已定 —— 先 Frida 只读抓栈，再落 LSPosed 模块（Vector + legacy API 82）
-  编译链已实测 —— android.jar + aapt2 + d8/R8 + apksig，本机纯命令行可出签名 APK
-                   （构建脚本落在 R14；本轮 bootstrap 尚不检查 Android 工具链）
+当前关键路径（iOS 侧）：
+  机型与工具已定 —— iPhone 8（A11）+ Dopamine（rootless /var/jb）
+  **版本是硬约束** —— 优先买已在 iOS <=16.6.1 的机器（可用 TrollStore 免每 7 天重签）；
+                     Apple 只签 16.7.16，买错了退不回去
+  代码不用改 —— Dopamine 的 rootless 前缀就是 /var/jb，与仓库假设完全一致
 
 仍需你提供（助手不代填 / 不代办）：
-  1) shared/config/targets.json 的 6 个授权字段（现为 fill_me）—— Android 版沿用同一套闸门
-  2) 一台已 root 的 Android 测试机（建议 Android 15 / API 35 + Magisk + Vector）
+  1) shared/config/targets.json 的 6 个授权字段（现为 fill_me）
+  2) 一台 iPhone 8（**优先 <=16.6.1**）；8 Plus 内存更大（3GB vs 2GB）更稳
+  3) 同意安装 frida（BG-011 抓栈用，见 docs/ios/device-spec.md）
 
-iOS 版（**冻结**，仅作参考，不再推进）：
-  需越狱机 + Dopamine/rootless；设备选型结论见 docs/ios/handoff-device-jailbreak.md。
-  注意：BG-032 编译链落点**已定为方案 C**（设备端 Procursus），不要再当未决项讨论。
+⚠️ 打包前必须先确认一件事（BG-061）：
+  配置里 scope.bundle_ids 是 com.ss.iphone.ugc.Lark，而 App Store 显示飞书是
+  com.bytedance.ee.lark。**BundleID 写错插件不会注入，而且不报错。** 先真机确认。
+
+Android（**暂停冻结**，不是删除）：
+  代码、文档、设备规格全部保留，随时可解冻；R12-R13 的产出（单仓双端结构、
+  110 条语言中立向量）与主线在哪一侧无关，继续有效。见 android/README.md。
 EOF
 
 if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* || "${LINK_STATUS}" == "失败" ]]; then

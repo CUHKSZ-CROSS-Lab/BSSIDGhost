@@ -169,7 +169,8 @@ fi
 
 # --- 6. 日志设置 -------------------------------------------------------------
 # R13 起路径**按平台取值**：log.paths.{ios,android}。iOS 必须有绝对路径；
-# android 允许为 null（主通道是 logcat，文件路径留待 R14 定），但一旦给出就必须是绝对路径。
+# android 允许为 null（主通道是 logcat；Android 已暂停冻结，文件路径随解冻再定），
+# 但一旦给出就必须是绝对路径。
 LOG_ENABLED="$(jq -r '.log.enabled // false' "${MAP_JSON}")"
 LOG_PATH_IOS="$(jq -r '.log.paths.ios // ""' "${MAP_JSON}")"
 LOG_PATH_ANDROID="$(jq -r '.log.paths.android // ""' "${MAP_JSON}")"
@@ -191,7 +192,7 @@ if [[ "${LOG_ENABLED}" == "true" ]]; then
     fi
 
     if [[ -z "${LOG_PATH_ANDROID}" || "${LOG_PATH_ANDROID}" == "null" ]]; then
-        note "log.paths.android 未定（Android 主通道为 logcat，文件路径留待 R14）"
+        note "log.paths.android 未定（Android 主通道为 logcat；Android 已冻结，解冻后再定）"
     elif [[ "${LOG_PATH_ANDROID}" != /* ]]; then
         bad "log.paths.android 不是绝对路径：'${LOG_PATH_ANDROID}'"
     else

@@ -9,8 +9,9 @@
 **只替换 App 读取到的 BSSID 返回值**（SSID 与真实链路不变）。
 准确表述是「返回值的伪装 / spoofing」，**不是**「切换 Wi-Fi 连接」。
 
-> ⚠️ **平台现状**：**当前主线是 Android**；iOS 版已冻结（代码保留、不再投入）。
-> 转向原因见 [`docs/adr/0001-pivot-to-android.md`](docs/adr/0001-pivot-to-android.md)。
+> ⚠️ **平台现状**：**当前主线是 iOS**（R14 切回）；Android 已暂停冻结（代码与文档全保留）。
+> 决策发生过两次反转，都留了档：[ADR-0001](docs/adr/0001-pivot-to-android.md)（转向 Android）→
+> [ADR-0002](docs/adr/0002-return-to-ios.md)（切回 iOS，**并修正了一个错误的越狱结论**）。
 
 ## 1. 5 分钟恢复（三步）
 
@@ -47,30 +48,29 @@ bash scripts/bootstrap.sh
 
 ## 2. 新机器要装什么
 
-### 2.1 当前主线（Android）
+### 2.1 当前主线（iOS）
 
 | 层级 | 工具 | Linux（Arch） | 说明 |
 |---|---|---|---|
-| **必需**（跑主机检查） | `git` / `clang` / `jq` | `pacman -S git clang jq` | clang 只服务于冻结的 iOS 侧检查 |
-| **Android 构建** | JDK（`javac`）+ 构建脚本取件 | `pacman -S jdk-openjdk` | `aapt2` / `d8` / `apksig` / `android.jar` 由 R14 的脚本从镜像自动取，**不需要 Android Studio** |
-| **Android 设备** | `adb` / `fastboot` | `pacman -S android-tools android-udev` | `android-udev` 提供 USB 权限规则 |
-| **抓栈**（R15） | `frida` | npm 走 npmmirror（`frida@17.23.3`） | 需与设备上的 `frida-server` **版本严格匹配** |
+| **必需**（跑主机检查） | `git` / `clang` / `jq` | `pacman -S git clang jq` | clang 跑 C 单测与 ObjC 语法检查 |
+| **连设备** | `libimobiledevice` / `usbmuxd` | `pacman -S libimobiledevice usbmuxd` | `ideviceinfo` / `idevice_id` / `iproxy`（抓栈与部署用） |
+| **抓栈**（BG-011） | `frida` | npm 走 npmmirror（`frida@17.23.3`），需你给安装许可 | 设备侧需匹配版本的 `frida`（Sileo 安装或推 `frida-server`） |
+| **设备端编译**（方案 C） | 装在**设备**上，不是主机 | 见 [`docs/ios/ondevice-build-setup.md`](docs/ios/ondevice-build-setup.md) | `clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk` |
+| **主机侧可选** | `theos` + iOS SDK + `ldid` | `ldid` 仅在 AUR | **用户已选定不装**；真编译走设备端（方案 C） |
+
+> **主机不需要 iOS SDK、不需要 theos、不需要 Xcode** —— 方案 C 把编译放在越狱设备上。
+
+### 2.2 Android（已暂停冻结，仅当重新解冻时才需要）
+
+| 工具 | Linux（Arch） | 说明 |
+|---|---|---|
+| JDK（`javac`） | `pacman -S jdk-openjdk` | 构建脚本从镜像自动取 `aapt2` / `d8` / `apksig` / `android.jar` |
+| `adb` / `fastboot` | `pacman -S android-tools android-udev` | `android-udev` 提供 USB 权限规则 |
 
 > 网络现实（R12 实测）：`dl.google.com` 与 `repo1.maven.org` 在本开发机上**不可达**
-> （DNS 只有 IPv6），因此 Android 构建件必须走镜像：
-> `android.jar` → GitHub raw；`aapt2` / `d8` / `apksig` → 阿里云 Google Maven；
-> Xposed API → 阿里云 Central。**这些 R12 已端到端验证可用。**
+> （DNS 只有 IPv6），Android 构建件必须走镜像（[`android/README.md`](android/README.md)）。
 
-### 2.2 iOS（冻结，仅当你要复现 iOS 侧时才需要）
-
-| 工具 | Linux（Arch） | macOS |
-|---|---|---|
-| `libimobiledevice`（`idevice_id`/`iproxy`） | `pacman -S libimobiledevice` | `brew install libimobiledevice` |
-| `theos` + iOS SDK | `git clone` theos + `theos/sdks` | theos 安装脚本一行 |
-| `ldid`（签名） | 仅 AUR：`yay -S ldid` | `brew install ldid` 或 theos 自带 |
-| `dpkg-deb` | `pacman -S dpkg` | `brew install dpkg` |
-
-## 3. 换到 macOS —— 专门说明（对 iOS 侧仍然有效）
+## 3. 换到 macOS —— 专门说明
 
 如果你把开发机换成 Mac，**仓库里的东西不用改**，但有四点要知道：
 
@@ -88,21 +88,24 @@ bash scripts/bootstrap.sh
    `ios/scripts/build.sh` 两者都支持，会自动挑。
 4. **对 Android 主线没有帮助**：Android 端不需要 Mac，也不需要 Xcode。
 
-## 4. 下一步（R14，不需要设备）
+## 4. 下一步（R15，**由设备驱动**）
 
-| 轮次 | 做什么 | 需要设备 |
+R14 之后，**iOS 侧能脱离设备做的事已经做完**，下一步必须等机器。
+
+| 步骤 | 谁做 | 内容 |
 |---|---|---|
-| ~~R13~~ | ~~语言中立测试向量~~ → ✅ **本轮已完成**：110 条向量断言，总断言 251 | — |
-| **R14** | Java 核心（映射 + 授权闸）移植 + JVM 主机单测（消费同一份向量）+ `android/scripts/build.sh` | ❌ |
-| **R15** | Frida 只读抓栈：确认飞书实际走哪条 Wi-Fi 信息通道 | ✅ |
-| **R16** | LSPosed 模块实现 + 部署 + 端到端 T1–T10 | ✅ |
+| 1. 采购 | 用户 | **iPhone 8**（**优先已在 ≤16.6.1**；8 Plus 3GB 内存更稳）。验机见 [`docs/ios/device-spec.md`](docs/ios/device-spec.md) §7 |
+| 2. 越狱 | 用户 | **Dopamine**（rootless）→ Sileo 装 ElleKit + PreferenceLoader；≤16.6.1 再装 TrollStore 免重签 |
+| 3. 确认 BundleID | 双方 | 确认飞书真实 BundleID（**BG-061**）后再打包 |
+| 4. 设备端工具链 | 用户 | `clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk` |
+| 5. 编译 + 验证 | 双方 | `bash ios/scripts/build.sh --toolchain theos` → 装包 → T1–T10 → BG-011 抓栈 |
 
-**并行待办（用户侧）**：按 [`docs/android-device-spec.md`](docs/android-device-spec.md)
-采购测试机（推荐二手 Pixel 8/8a、固定 Android 15、无锁版），
-并在 R15 之前给出**安装 frida 的一次性许可**。
+**用户侧并行待办**：采购 iPhone 8；给出**安装 frida 的一次性许可**。
 
-> ⚠️ **不要再把 `BG-032` 编译链落点当未决项**：它在 R9 已定为方案 C（iOS 侧），
-> 且 Android 端的编译链在 R12 **已端到端实测通过**——这个纠结在 Android 上不存在。
+> ⚠️ **两条不要重新讨论的事**：
+> 1. `BG-032` 编译链落点已在 R9 定为**方案 C**；
+> 2. **iPhone 8 能不能越狱**已在 R14 核实为**能**（palera1n + Dopamine 双重支持），
+>    旧的「arm64e 排除」推论是错的，见 [`docs/ios/device-spec.md`](docs/ios/device-spec.md) §1。
 
 ## 5. 当前进度与缺口（指针，不复制真源）
 
@@ -110,46 +113,51 @@ bash scripts/bootstrap.sh
 |---|---|
 | 任务板、轮次记录、阻塞项、环境事实 | [`docs/STATUS.md`](docs/STATUS.md) |
 | 已定决策、风险、未决事项 | [`HANDOFF.md`](HANDOFF.md) |
-| 转向原因与两端关系 | [`docs/adr/0001-pivot-to-android.md`](docs/adr/0001-pivot-to-android.md) |
-| **Android 测试机采购规格 + root 方案 + 验机命令** | [`docs/android-device-spec.md`](docs/android-device-spec.md) |
-| Android 选型、候选 Hook 点、纪律 | [`android/README.md`](android/README.md) |
-| 平台中立规格与配置 | [`shared/README.md`](shared/README.md) |
-| iOS 冻结说明与回滚 | [`ios/README.md`](ios/README.md) |
+| **两次反转的原因（含被推翻的旧结论）** | [`docs/adr/0002-return-to-ios.md`](docs/adr/0002-return-to-ios.md)（新）→ [`0001`](docs/adr/0001-pivot-to-android.md) |
+| **iPhone 8 采购规格 + 越狱方案 + 验机命令** | [`docs/ios/device-spec.md`](docs/ios/device-spec.md) |
+| iOS 实现说明（曾冻结，R14 解冻） | [`ios/README.md`](ios/README.md) |
 | iOS 技术链路、Hook 点、可证伪实验 | [`docs/ios/tech-chain.md`](docs/ios/tech-chain.md)（§2.2） |
+| 设备端编译 SOP（方案 C） | [`docs/ios/ondevice-build-setup.md`](docs/ios/ondevice-build-setup.md) |
+| Android（冻结中，备查） | [`android/README.md`](android/README.md)、[`docs/android-device-spec.md`](docs/android-device-spec.md) |
+| 平台中立规格与配置 | [`shared/README.md`](shared/README.md) |
 | 测试矩阵与证据规范 | [`tests/README.md`](tests/README.md)、[`tests/evidence/README.md`](tests/evidence/README.md) |
 
 **已经能确定的**（有证据、可在本机复现）：
 
 - 主机侧 **251 项断言全绿**——配置契约、脚本自检（含授权闸反向用例）、
   ObjC 语法与头文件自包含、授权闸与映射两个模拟器、92 条纯 C 单测；
-- **Android 构建链端到端可用**：本机用 `javac` + `aapt2` + `d8` + `apksig`
-  真实打出并**签名验证通过**了一个 APK（含 `WifiInfo.getBSSID` 的 hook 骨架编译通过）；
-- 文档 **210 条内部链接无断链**。
+- **iPhone 8 可行性已核实**（R14）：palera1n 与 Dopamine **都支持 A11**，
+  Dopamine 是 rootless `/var/jb`，与仓库假设完全一致 → **iOS 代码不用改**；
+- 飞书 iOS 元数据：最低 **iOS 13.0**，`supportedDevices` **含 iPhone 8** → 装得上；
+- （Android 备查）构建链端到端可用：本机 `javac` + `aapt2` + `d8` + `apksig`
+  真实打出并签名验证通过了一个 APK；
+- 文档 **265 条内部链接无断链**。
 
 **明确还没有的**：
 
-- **Android 端一个真机动作都没做过**——没有设备、没有抓栈、没有装过模块；
-- APK 只在本机签名并验证过，**从未在 Android 上安装运行**（本机无 `/dev/kvm`，跑不了模拟器）；
-- 飞书是否有 root/Xposed 检测、`WifiInfo.getBSSID()` 在 Android 15 上要哪个权限：**待实测**；
-- iOS 侧**没有任何一行代码在真实 iOS SDK 上编译或链接过**（已随冻结一并归档）。
+- **两边都没有任何真机动作**：iPhone 8 未采购，越狱/编译/抓栈都没发生过；
+- iOS 侧**没有任何一行代码在真实 iOS SDK 上编译或链接过**（这是最大的空洞）；
+- **BG-061**：飞书的真实 BundleID 待真机确认（配置里那个值很可能是错的）；
+- Dopamine 是否要求关密码、飞书是否有越狱检测：**均未查到可靠来源 / 待实测**。
 
 **真机线的前置**（都不由助手代填/代办）：
 
-1. `shared/config/targets.json` 的 6 个授权字段仍是 `fill_me`（**两端共用**）；
-2. 一台已 root 的 Android 测试机（Android 15 / API 35 + Magisk + Vector）；
-3. 同意安装 `frida`。
+1. `shared/config/targets.json` 的 6 个授权字段仍是 `fill_me`；
+2. **一台 iPhone 8，且优先已在 iOS ≤16.6.1**（这决定 TrollStore 能否用）；
+3. 同意安装 `frida`（BG-011 抓栈用）。
 
 ## 6. 换 AI 会话怎么最快接上
 
 新开一个助手会话时，用这段开场（可按需删减）：
 
 ```
-先读 RESUME.md、HANDOFF.md、docs/STATUS.md、docs/adr/0001-pivot-to-android.md，
-再读 docs/android-device-spec.md、android/README.md、shared/README.md。然后：
+先读 RESUME.md、HANDOFF.md、docs/STATUS.md、docs/adr/0002-return-to-ios.md，
+再读 docs/ios/device-spec.md、docs/ios/ondevice-build-setup.md、shared/README.md。然后：
 1) 运行 bash scripts/bootstrap.sh，把结果告诉我；
-2) 主线是 Android（iOS 版已冻结，不要再推进 iOS）；
-3) 按 docs/STATUS.md 的阻塞项与下一轮（R13/R14）继续推进；
-4) 遵守约定：shared/config/targets.json 的授权字段未填齐前不做真机注入、不代填授权字段；
+2) 主线是 iOS（iPhone 8 + Dopamine）；Android 已暂停冻结，不要再推进 Android；
+3) 按 docs/STATUS.md 的阻塞项与下一轮（R15）继续推进；
+4) 打包前先确认飞书真实 BundleID（BG-061）——写错的话插件不会注入且不报错；
+5) 遵守约定：shared/config/targets.json 的授权字段未填齐前不做真机注入、不代填授权字段；
    外部资料的结论必须标注「待真机验证」；每次改动要有可复现的验证证据；
    改了目录或文档后跑 bash scripts/check-links.sh。
 ```
@@ -159,6 +167,9 @@ bash scripts/bootstrap.sh
 1. **进度真源**是 `docs/STATUS.md`；每轮结束更新 STATUS 与 HANDOFF；任务号必须唯一。
 2. **安全闸不放宽**：`fill_me` 未填齐即拒绝 build/deploy/Hook；助手不代填授权字段。
 3. **实测与外部资料严格分开**：只有 `tests/evidence/` 里的输出才能写「实测」。
+
+> **R14 新增的第 4 条纪律**：判断某机型能否越狱，**必须回到官方「支持设备列表」核对**，
+> 不能从一句概括性描述外推——项目正是在这里错过一次（差点白白转向 Android）。
 
 ## 7. 离线传输兜底
 
@@ -179,7 +190,7 @@ bash scripts/bootstrap.sh                  # 环境自检 + 主机检查 + 链�
 bash scripts/check-links.sh                # 只跑文档链接检查（改过文档/目录后必跑）
 bash scripts/check-links.sh -v             # 附带统计检查了多少文件/链接
 
-# —— iOS 侧（冻结，但必须保持全绿：它是规格层的参照实现）——
+# —— iOS 侧（当前主线：测试与打包都在这边）——
 bash ios/tests/host/run.sh                 # 251 项断言（含语言中立向量）
 bash ios/tests/host/run-vectors.sh         # 只跑 shared/vectors/ 的向量驱动（110 条）
 bash ios/tests/host/gate-sim.sh            # 当前配置下，Hook 会对目标进程启用还是拒绝？
@@ -189,9 +200,13 @@ bash ios/tests/host/map-sim.sh  --self-test   # 映射模拟器自检（8 项）
 bash ios/tests/host/check-objc-syntax.sh   # ObjC 语法（自动选 真SDK / 声明桩 模式）
 bash ios/scripts/verify.sh --skip-device   # 只做本地检查（设备侧需真机）
 
-# —— Android 侧（R14 起提供，当前为空）——
+# 连设备 / 取信息（iOS）
+idevice_id -l                              # 列出已连接设备
+ideviceinfo -k ProductVersion              # 版本（采购验机第一项）
+iproxy 2222 22                             # SSH 隧道（Dopamine + OpenSSH 时一般可直连局域网）
+
+# —— Android 侧（已暂停冻结，解冻后才需要）——
 # bash android/scripts/build.sh            # 构建模块 APK（会先过授权闸）
-# bash android/scripts/deploy.sh           # adb 安装 / 推送
 
 # —— 发布 ——
 bash scripts/publish.sh --help             # 推送到远端并开 PR（见 §9）

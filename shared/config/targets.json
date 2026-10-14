@@ -5,6 +5,7 @@
   "scope": {
     "mode": "allowlist",
     "_comment": "allowlist = 仅列出的 BundleID 生效（大小写敏感精确匹配）；all = 所有 App 进程生效（不推荐，仍需授权齐备）",
+    "_bundle_id_warning": "⚠️ BG-061（R14 未决）：下面的 com.ss.iphone.ugc.Lark 很可能是**过时的值**。Apple App Store 元数据显示国内版飞书为 com.bytedance.ee.lark（最低 iOS 13.0，supportedDevices 含 iPhone 8）。若真机确认如此，theos 过滤器会写错 BundleID —— 插件**不会注入，而且不报错**。在真机确认之前**不要打包**；确认后同时更新本文件与 ios/layout 的过滤器。证据见 docs/ios/device-spec.md §5。",
     "bundle_ids": [
       "com.ss.iphone.ugc.Lark"
     ]

@@ -6,6 +6,17 @@
 
 ## 0. 一句话结论（先看这个，别跳过）
 
+> ### ⚠️ R14 校正（2026-10-14）：本文档的**主线已被 ADR-0002 取代**
+>
+> 本文档现在只剩两个作用：
+> 1. 存档「**为什么 iPhone 12（A14 / iOS 26）被否**」——这个结论仍然成立；
+> 2. 存档一个**已修正的错误推论**（见 §2.1）：本文档曾用「arm64e 排除」错误地把
+>    **iPhone 8 / 8 Plus / X 一并否定**，而它们其实**被 palera1n 与 Dopamine 双重支持**。
+>
+> **当前主线**：采购 **iPhone 8（A11）+ Dopamine**，见
+> [`docs/ios/device-spec.md`](device-spec.md) 与 [`docs/adr/0002-return-to-ios.md`](../adr/0002-return-to-ios.md)。
+> 教训已写入 §2.1 与 §5。
+
 **用户手上的 iPhone 12（A14 / iOS 26）无法越狱，而且降级到可越狱版本的路也不通。**
 在开始任何刷机操作之前，必须先接受或推翻这个结论（§2、§3 给了依据与确认清单）。
 
@@ -32,11 +43,44 @@ HANDOFF.md、docs/STATUS.md、docs/ios/ondevice-build-setup.md。
 |---|---|---|---|
 | **Dopamine**（rootless，自带 Sileo/Zebra） | iOS 15.0–17.3.1（**A14–A17 / M1–M2**）<br>iOS 15.0–18.7.1 与 26.0–26.0.1（**A8–A13**） | **A14 的上限是 17.3.1**，不支持 iOS 26 | [官方站点](https://ellekit.space/dopamine/)、[cfw.guide](https://ios.cfw.guide/installing-dopamine-trollstore/) |
 | **Dopamine 3.0**（iOS 26 首个越狱） | iOS 17.3.1 支持；**iOS 26 仅 A12/A13** | 不含 A14 | [iClarified 报道](https://www.iclarified.com/101697/dopamine-30-jailbreak-released-with-ios-1731-support-ios-26-on-a12a13)、[TechSpot](https://www.techspot.com/news/113408-jailbreak-ios-26-finally-here-326-days-after.html) |
-| **palera1n**（checkm8） | arm64（**arm64e 明确排除**）；设备仅到 **A11 及以下**（iPhone 8/8 Plus/X、6s、SE1、7…） | 文档原文："**arm64e devices will NEVER be supported**"；半不完美越狱；多数机型**不能设密码** | [官方 man page](https://raw.githubusercontent.com/palera1n/palera1n/main/docs/palera1n.1) |
+| **palera1n**（checkm8） | **A8 – A11**（官方 README 机型表**明确列出 iPhone 8 / 8 Plus / X**）；iOS/iPadOS **15.0–18.0**（arm64 设备） | semi-**tethered**（每次重启都要连电脑）；**A11 官方明示不能设密码**；man page 里 `arm64e devices will NEVER be supported` 指的是 **A12 及以上**，**不含 A11** | [仓库描述](https://github.com/palera1n/palera1n)「Jailbreak for **A8 through A11**」、官方 README 机型表、[man page](https://raw.githubusercontent.com/palera1n/palera1n/main/docs/palera1n.1) |
 
-**推论**：iPhone 12 = **A14 = arm64e** →
+### 2.1 ⚠️ 已修正的错误推论（本文档原稿在此处判断错了）
+
+原稿写「palera1n：arm64（**arm64e 明确排除**）……iPhone 8/8 Plus/X」——
+**这句话自相矛盾**（iPhone 8/8 Plus/X 本身就是 arm64e），而且把一整类可行机型误杀了。
+
+第一手原文（palera1n man page）实际是：
+
+```
+jailbreaks an arm64 (arm64e excluded) iOS/iPadOS/tvOS 15-26, bridgeOS 5-10 device,
+utilizing the checkm8 bootROM exploit.
+...
+On A11 devices, that is, iPhone 8, iPhone 8 Plus and iPhone X, the passcode cannot be used.
+...
+.Sh SUPPORTED DEVICES
+.It iPhone 8
+.It iPhone 8 Plus
+.It iPhone X
+...
+arm64e devices will NEVER be supported.
+```
+
+判别依据：**不会给不支持的设备写专门一节**（`On A11 devices …`），且 `SUPPORTED DEVICES`
+列表里逐个列出了它们。palera1n 文档的措辞不严谨——把 A8–A11 称作 "arm64"、把 A12+ 称作 "arm64e"。
+
+**对 iPhone 12 的结论（不能越狱）依然成立，但理由不是 arm64e，而是 A14 不在 checkm8 范围内。**
+当年"结论对、理由错"，而错误理由被继续外推，差点误杀 iPhone 8。
+
+> **纪律（新增）**：不要用二手推论去否定一整类机型。判断某机型能否越狱，
+> 必须回到官方**支持设备列表**本身核对，而不是从一句概括性描述外推。
+
+**推论**：iPhone 12 = **A14** →
 - Dopamine 覆盖 A14，但只到 iOS **17.3.1**（当前是 26）→ **不满足**；
-- palera1n 永久排除 arm64e → **完全不适用**。
+- palera1n 需要 checkm8 bootrom 漏洞，而 **checkm8 只到 A11**，A14 没有 → **不适用**。
+
+> 注意归因：**不是**因为「arm64e 被排除」——A11 同样是 arm64e 且被支持。
+> 真正的原因是**芯片是否落在 checkm8 范围内**（A11 及以下）。
 
 ## 3. 降级（iOS 26 → ≤17.3.1）为什么不可行
 
@@ -60,16 +104,20 @@ HANDOFF.md、docs/STATUS.md、docs/ios/ondevice-build-setup.md。
 
 ## 4. 可行路线（按推荐度排序）
 
-| 路线 | 需要什么 | 优点 | 缺点 |
-|---|---|---|---|
-| **① 换一台 A12/A13 设备**（iPhone XS/XR/11/SE2） | 系统在 **26.0–26.0.1** 或 **≤18.7.1** | 与项目当前假设（rootless `/var/jb`）完全一致；iOS 26 也能越狱 | 要买机；买之前必须**当面验系统版本** |
-| **② 换一台 A14–A17 且系统 ≤17.3.1 的设备** | iPhone 12–15 系列，停在 ≤17.3.1 | 同样是 Dopamine/rootless | 二手市场这种"低版本"机器少、溢价高；系统版本不能升 |
-| **③ 用 A11 及以下设备 + palera1n** | iPhone 8 / X 等（便宜） | 便宜、易得；rootless 路径**同样是 `/var/jb`**，**项目代码不用改** | 半不完美越狱（每次重启要连电脑）；**多数机型不能设密码**；系统上限较低（iPhone X/8 官方止于 iOS 16.7.x） |
-| **④ 不越狱的替代验证**（仅部分场景） | Mac + iOS 模拟器等 | 无需越狱 | CoreWLAN / nehelper 在模拟器上不存在，**对本项目的核心链路价值很低**；只能验证 App 侧的一部分逻辑 |
+| 路线 | 需要什么 | 优点 | 缺点 | 结论 |
+|---|---|---|---|---|
+| **① A11 设备 + Dopamine**（iPhone 8 / 8 Plus / X） | 系统 **≤16.6.1** 优先（可装 TrollStore） | 便宜易得；**Dopamine 支持 A8–A11**；rootless `/var/jb` 与仓库假设**完全一致**；semi-untethered（重启后点 App 即可，不需电脑） | 从 16.7.16 退不回 ≤16.6.1（除非有 blobs）→ 版本必须买的时候就对 | ✅ **R14 选定** |
+| **② A11 设备 + palera1n** | 同上 | 免签名烦恼；bootrom 漏洞不受系统版本限制 | **A11 官方明示不能设密码**；semi-**tethered**（每次重启要连电脑） | 🟡 备选 |
+| **③ A12/A13 设备**（iPhone XS/XR/11/SE2） | 系统在 26.0–26.0.1 或 ≤18.7.1 | 系统新 | 贵；同样要买机验版本 | 🟡 备选 |
+| **④ A14–A17 且 ≤17.3.1** | iPhone 12–15 系列停在 ≤17.3.1 | 同 Dopamine/rootless | 二手机少、溢价高 | ❌ 性价比差 |
+| **⑤ 不越狱的替代验证** | Mac + iOS 模拟器 | 无需越狱 | CoreWLAN / nehelper 在模拟器上不存在，**对本项目核心链路价值很低** | ❌ 不适用 |
 
 **关键结论：换越狱工具不影响本仓库代码。** Dopamine 与 palera1n 的 rootless 布局都是
 `/var/jb`，过滤器目录也都是 `/var/jb/Library/MobileSubstrate/DynamicLibraries`，
 所以 `ios/scripts/deploy.sh`、`ios/layout/`、`ios/hooks/` 都不用改——**变的只是装机步骤**。
+
+> 完整采购规格（版本约束、TrollStore 边界、Dopamine 安装 SOP、验机命令）见
+> [`docs/ios/device-spec.md`](device-spec.md)。
 
 ## 5. 新会话必须问清/核实的清单
 
@@ -82,12 +130,15 @@ HANDOFF.md、docs/STATUS.md、docs/ios/ondevice-build-setup.md。
 5. 目标 App 的最低系统要求是什么？（新系统装不上目标 App 的话，越狱出来也没法验证——
    这条会反向约束 §4 的选择）
 
-**核实（可在新会话继续查）**：
+**核实（R14 已给出答案）**：
 
-- 是否已有 **A14 + iOS 18/26** 的公开越狱（Dopamine 矩阵之外的新工具）；
-- 26.0 vs 26.0.1 对 A12/A13 的支持差异（影响路线 ① 的选机验版标准）；
-- palera1n 对 iPhone 8/X 的实际可越狱上限（man page 的 "15-26" 与 "15.0-18.0" 两处表述不一致，
-  且 iPhone X/8 的官方系统上限本身就在 16.7.x）。
+- ~~palera1n 对 iPhone 8/X 的实际可越狱上限~~ → ✅ **已核实：支持**。iPhone 8 系统上限
+  **16.7.16**，palera1n 支持「arm64 iOS 15.0–18.0」，覆盖该机型全区间；且 Dopamine 也支持 A8–A11；
+- ~~是否已有 A14 + iOS 18/26 的公开越狱~~ → 仍然没有（不影响本决策，主线已避开 A14）；
+- ~~26.0 vs 26.0.1 对 A12/A13 的支持差异~~ → 与本决策无关（不再走 A12/A13 路线）。
+
+> ⚠️ 上面 §5 的「问用户」清单是为**当年那台 iPhone 12** 写的，已作废。
+> 现在要问/要验的项都在 [`docs/ios/device-spec.md`](device-spec.md)。
 
 ## 6. 本项目对设备的硬性要求（选机时一起考虑）
 
