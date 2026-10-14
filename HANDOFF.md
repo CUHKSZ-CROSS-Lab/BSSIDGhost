@@ -311,7 +311,8 @@ R14 之后，**iOS 侧能脱离设备做的事已经做完**：主机侧 251 项
 6. **分工**：用户提供真机事实与执行（或授权助手在有设备时执行）；助手负责调研、代码、脚本、文档
    及一切主机侧可验证的部分。
 7. **同步节奏**：`bash scripts/publish.sh`（先 `--dry-run`）；脚本从不 force push、不改写历史。
-8. **文档改动后跑链接检查**：`bash scripts/check-links.sh`。
+8. **文档/目录改动后跑两个检查**：`bash scripts/check-links.sh`（Markdown 链接）与
+   `bash scripts/check-shell.sh`（shell 语法 + **source 目标存在性**）。
    R12 的目录重构一次产生过 **52 条断链**，而文档是新会话的唯一入口——这类问题必须机器兜住。
 9. **改目录结构时**：`ios/scripts/lib/common.sh` 的根解析带哨兵（找不到
    `shared/config/targets.json` 立即报错）。搬迁脚本后请**先跑一次测试套件**，

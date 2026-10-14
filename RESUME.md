@@ -188,8 +188,9 @@ R14 之后，**iOS 侧能脱离设备做的事已经做完**，下一步必须�
 > **R14 新增第 4 条纪律**：判断某机型能否越狱，**必须回到官方「支持设备列表」核对**，
 > 不能从一句概括性描述外推——项目正是在这里错过一次，差点白白转向 Android。
 >
-> **第 5 条（R12 起）**：目录或文档改动后跑 `bash scripts/check-links.sh`；
-> 根解析有哨兵（找不到 `shared/config/targets.json` 会立即报错），搬迁脚本后先跑测试套件。
+> **第 5 条（R12/R14）**：目录或文档改动后跑 `bash scripts/check-links.sh` 与
+> `bash scripts/check-shell.sh`；根解析有哨兵（找不到 `shared/config/targets.json` 会立即报错）；
+> **搬动文件后必须跑一次测试套件**——R14 就是靠它才发现 `publish.sh` 的 source 早已断掉。
 
 ## 7. 离线传输兜底
 
@@ -209,6 +210,8 @@ git remote set-url origin https://github.com/CUHKSZ-CROSS-Lab/BSSIDGhost.git
 bash scripts/bootstrap.sh                  # 环境自检 + 主机检查 + 链接检查（第一条命令）
 bash scripts/check-links.sh                # 只跑文档链接检查（改过文档/目录后必跑）
 bash scripts/check-links.sh -v             # 附带统计检查了多少文件/链接
+bash scripts/check-shell.sh                # shell 脚本检查：语法 + source 目标存在性
+bash scripts/check-shell.sh -v             # 逐条列出每个脚本的检查结果
 
 # —— iOS 侧（当前主线：测试与打包都在这边）——
 bash ios/tests/host/run.sh                 # 251 项断言（含语言中立向量）

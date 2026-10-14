@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
-# BSSIDGhost - 三个脚本共用的工具函数。
+# BSSIDGhost - **iOS 专属**脚本共用的工具函数（授权闸 / 越狱路径 / 过滤器生成）。
 #
 # 只应被 source，不要直接执行：
 #   source "$(dirname "$0")/lib/common.sh"
+#
+# 分层（R14 修正）：与平台无关的打印 / dry-run / 依赖检查在 `scripts/lib/common.sh`，
+# 本文件会 source 它。**跨端脚本（如 scripts/publish.sh）不应依赖本文件。**
 #
 # 这里刻意**不重新实现**授权闸与映射的判定逻辑（那在 ios/hooks/BGGhostAuth.c 与
 # ios/hooks/BGGhostRules.c，由 ios/tests/host 的 92 条断言覆盖）。本文件里的检查是
@@ -23,61 +26,20 @@ if [[ ! -f "${BG_ROOT}/shared/config/targets.json" ]]; then
     printf '   脚本被移动过？目录约定见 HANDOFF.md 的「目录结构」。\n' >&2
     exit 1
 fi
-BG_DRY_RUN="${BG_DRY_RUN:-0}"
+# 跨端通用件：输出 / dry-run 执行器 / 依赖检查
+# shellcheck source=../../../scripts/lib/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/lib" && pwd)/common.sh"
 
-# 越狱形态已确认（R1）：Dopamine / rootless，iOS 15.0-16.6.x，路径前缀 /var/jb
+# 越狱形态（R1 确认 Dopamine/rootless；R14 复核为 iPhone 8 / A11，前缀 /var/jb）
 BG_JB_PREFIX="${BGGHOST_JB_PREFIX:-/var/jb}"
 BG_MIN_IOS="${BGGHOST_MIN_IOS:-15.0}"
 BG_INSTALL_DYLIB_DIR="${BGGHOST_INSTALL_DYLIB_DIR:-${BG_JB_PREFIX}/usr/lib}"
 BG_SHARE_DIR="${BGGHOST_SHARE_DIR:-${BG_JB_PREFIX}/usr/share/bssidghost}"
 BG_DEVICE_LOG="${BGGHOST_LOG:-/var/mobile/Library/Logs/BSSIDGhost/ghost.log}"
 
-# --- 输出 -------------------------------------------------------------------
-
-bg_step() { printf '==> %s\n' "$*"; }
-bg_info() { printf '    %s\n' "$*"; }
-bg_warn() { printf '!! %s\n' "$*" >&2; }
-bg_die()  { printf '!! %s\n' "$*" >&2; exit 1; }
-
-# --- 依赖 -------------------------------------------------------------------
-
-bg_require_cmd() {
-    command -v "$1" >/dev/null 2>&1 || bg_die "未找到命令 $1${2:+（$2）}"
-}
-
+# iOS 专属的依赖检查（跨端那份不关心 jq）
 bg_require_jq() {
     bg_require_cmd jq "配置解析与过滤器生成都依赖它"
-}
-
-# --- 执行（支持 --dry-run）---------------------------------------------------
-
-# 打印一条命令。安全字符集内的参数原样输出，其余用单引号包住，
-# 既保留参数边界（可直接复制执行），又比 %q 的 \ 转义更易读。
-bg_print_cmd() {
-    printf '    [dry-run]'
-    local arg quoted
-    for arg in "$@"; do
-        if [[ "${arg}" =~ ^[A-Za-z0-9_@%+=:,./-]+$ ]]; then
-            printf ' %s' "${arg}"
-        else
-            quoted="${arg//\'/\'\\\'\'}"
-            printf " '%s'" "${quoted}"
-        fi
-    done
-    printf '\n'
-}
-
-# 非 dry-run 时真正执行；dry-run 只打印。
-bg_run() {
-    if [[ "${BG_DRY_RUN}" -eq 1 ]]; then
-        bg_print_cmd "$@"
-        return 0
-    fi
-    "$@"
-}
-
-bg_require_not_dry_run() {
-    [[ "${BG_DRY_RUN}" -eq 0 ]] || bg_die "$1 在 --dry-run 下不可用（会真的改动设备/产物）"
 }
 
 # --- 配置路径 ---------------------------------------------------------------

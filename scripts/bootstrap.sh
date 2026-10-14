@@ -180,6 +180,23 @@ if [[ "${SKIP_TESTS}" -eq 0 ]]; then
     echo
 fi
 
+# --- shell 脚本静态检查（跨平台）---------------------------------------------
+SHELL_STATUS="跳过"
+if [[ "${SKIP_TESTS}" -eq 0 ]]; then
+    echo "--- shell 脚本静态检查（语法 + source 目标存在性）---"
+    set +e
+    SHELL_OUTPUT="$(bash "${ROOT}/scripts/check-shell.sh" 2>&1)"
+    shell_code=$?
+    set -e
+    printf '%s\n' "${SHELL_OUTPUT}" | tail -n 8
+    if [[ "${shell_code}" -eq 0 ]]; then
+        SHELL_STATUS="通过"
+    else
+        SHELL_STATUS="失败"
+    fi
+    echo
+fi
+
 # --- 总结与下一步 ------------------------------------------------------------
 echo "==> 总结"
 if [[ "${MISSING_REQUIRED}" -gt 0 ]]; then
@@ -199,6 +216,11 @@ case "${LINK_STATUS}" in
     跳过) echo "    ⚠️  文档链接检查未执行" ;;
     *)    echo "    ❌ 文档链接检查失败" ;;
 esac
+case "${SHELL_STATUS}" in
+    通过) echo "    ✅ shell 脚本检查通过（语法 + source 目标存在）" ;;
+    跳过) echo "    ⚠️  shell 脚本检查未执行" ;;
+    *)    echo "    ❌ shell 脚本检查失败" ;;
+esac
 echo
 
 cat <<'EOF'
@@ -213,7 +235,7 @@ cat <<'EOF'
   4. docs/adr/0002-return-to-ios.md   为什么主线切回 iOS（含被推翻的旧结论）
   5. docs/ios/purchase-checklist.md  **一页采购清单（可直接发给卖家）**
   6. docs/ios/device-spec.md      iPhone 8 采购规格 + 越狱方案 + 验机命令（含来源与性质）
-  6. docs/ios/tech-chain.md       iOS 链路与 Hook 点（§2.2 是可证伪实验）
+  7. docs/ios/tech-chain.md       iOS 链路与 Hook 点（§2.2 是可证伪实验）
 
 当前关键路径（iOS 侧）：
   机型与工具已定 —— iPhone 8（A11）+ Dopamine（rootless /var/jb）
@@ -235,6 +257,7 @@ Android（**暂停冻结**，不是删除）：
   110 条语言中立向量）与主线在哪一侧无关，继续有效。见 android/README.md。
 EOF
 
-if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* || "${LINK_STATUS}" == "失败" ]]; then
+if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* \
+      || "${LINK_STATUS}" == "失败" || "${SHELL_STATUS}" == "失败" ]]; then
     exit 1
 fi

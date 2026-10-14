@@ -79,6 +79,8 @@ R10 那轮用「palera1n 明确排除 arm64e」把 **iPhone 8 / 8 Plus / X 一�
 | BG-057 | LSPosed 模块实现（Vector + legacy API 82）+ 部署脚本 + 端到端 T1–T10 | frozen | BG-054、BG-055、BG-056 | — |
 | BG-059 | **主线切回 iOS：ADR-0002 + Android 冻结标记 + 修正被推翻的越狱结论** | **done** | — | [`docs/adr/0002-return-to-ios.md`](adr/0002-return-to-ios.md)、[`android/README.md`](../android/README.md) |
 | BG-060 | **iPhone 8 设备规格与验机清单**（Dopamine 选型 + TrollStore 边界 + 版本硬约束） | **done** | — | [`docs/ios/device-spec.md`](ios/device-spec.md) |
+| BG-062 | **修 R12 遗留缺陷**：`scripts/publish.sh` 的 source 目标在重构后已断（一跑就炸），
+并把跨端 helper 拆回 `scripts/lib/`；新增 `scripts/check-shell.sh` 守住这类问题 | **done** | BG-059 | [`scripts/lib/common.sh`](../scripts/lib/common.sh)、[`scripts/check-shell.sh`](../scripts/check-shell.sh)（含故障注入验证） |
 | BG-061 | **核实并修正 iOS 目标 BundleID**：配置里是 `com.ss.iphone.ugc.Lark`，而 App Store 显示飞书为 `com.bytedance.ee.lark` | **todo** | 真机确认 | 证据见 [`device-spec.md`](ios/device-spec.md) §5；**过滤器写错会导致插件静默不注入** |
 | BG-058 | 日志路径按平台取值（`log.path` → `log.paths.{ios,android}`）+ 契约检查与反向验证 | **done** | BG-053 | [`shared/config/bssid_map.json`](../shared/config/bssid_map.json)、[`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) |
 
@@ -242,6 +244,40 @@ A12+ 叫 "arm64e"。**对 iPhone 12 的结论（不能越狱）仍然成立，�
 ```
 $ bash ios/tests/host/run.sh      -> 251 项断言，0 失败（文档改动未破坏任何检查）
 $ bash scripts/check-links.sh -v  -> 245 条内部链接，无断链
+```
+
+**五之二、开 PR 时又抓到两个真实缺陷（BG-062）**
+
+`publish.sh --dry-run` 一跑就炸：
+
+```
+scripts/publish.sh: line 23: .../scripts/lib/common.sh: No such file or directory
+```
+
+**R12 把 `lib/` 搬进 `ios/scripts/lib/` 时，跨端的 `publish.sh` 还在 source 老路径**
+——而这个脚本**不在任何检查里**（`check-scripts.sh` 只覆盖 build/deploy/verify），
+所以它坏了整整两轮才在"真要开 PR"的时候暴露。
+
+修法不是补一行路径，而是**修分层**：跨端 helper（打印 / dry-run / 依赖检查）回到
+`scripts/lib/common.sh`，iOS 专属（授权闸 / 越狱路径 / 过滤器生成）留在 `ios/scripts/lib/common.sh`
+并向跨端那份 source。
+
+**并加了防复发检查** `scripts/check-shell.sh`：全部 `.sh` 的语法 + **`source` 目标存在性**，
+已接入 `bootstrap.sh`（失败即退出码 1）。做了故障注入验证（把 publish.sh 指到不存在的文件 → 确实 FAIL）。
+
+> **顺带记一个值得警惕的写法**：该检查器的 `ok()` 最初写成
+> `PASS=$((PASS+1)); [[ "$VERBOSE" -eq 1 ]] && printf ...` ——
+> 非 `-v` 模式下这个 `&&` 列表返回 1，被 `set -e` 当成失败 →
+> **脚本静默退出、什么都不打印**。这类"看着在跑其实早就死了"的 bug
+> 与本项目历史上踩过的坑同族，已加注释说明为何必须显式 `return 0`。
+
+**五之三、回归验证**
+
+```
+$ bash scripts/bootstrap.sh       -> 退出码 0
+    ✅ 主机检查通过（含 110 条语言中立向量）
+    ✅ 文档链接检查通过
+    ✅ shell 脚本检查通过（语法 + source 目标存在）
 ```
 
 **六、诚实标注**

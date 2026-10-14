@@ -25,7 +25,9 @@ make_filled_copy() {
     mkdir -p "${dir}"
     # 复制成一份**同构**工程：相对层级必须与真实仓库一致，
     # 否则子脚本里的根解析会指向副本之外。
-    cp -r "${ROOT}/shared" "${ROOT}/ios" "${dir}/"
+    # 注意必须带上跨端的 scripts/：ios/scripts/lib/common.sh 会 source
+    # ../../../scripts/lib/common.sh（R14 分层修正），少了它副本里就跑不起来。
+    cp -r "${ROOT}/shared" "${ROOT}/ios" "${ROOT}/scripts" "${dir}/"
 
     local tmp_json="${dir}/.targets.tmp.json"
     jq '
