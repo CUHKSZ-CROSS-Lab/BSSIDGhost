@@ -115,11 +115,14 @@ static void BGGhostLoadLogConfigLocked(void) {
 
     sBGLogConfig.enabled = [log[@"enabled"] boolValue] ? 1 : 0;
 
-    NSString *logPath = BGGhostString(log[@"path"]);
+    // R13：路径改为**按平台取值**（log.paths.ios / log.paths.android），
+    // 因为两端默认落盘位置天差地别。iOS 只认 paths.ios。
+    NSDictionary *paths = BGGhostDictionary(log[@"paths"]);
+    NSString *logPath = (paths != nil) ? BGGhostString(paths[@"ios"]) : nil;
     if (logPath.length > 0 && logPath.length < sizeof(sBGLogConfig.path)) {
         strncpy(sBGLogConfig.path, logPath.UTF8String, sizeof(sBGLogConfig.path) - 1);
     } else if (logPath.length > 0) {
-        NSLog(@"[BSSIDGhost] 日志设置：log.path 过长，已忽略（退化为仅 NSLog）");
+        NSLog(@"[BSSIDGhost] 日志设置：log.paths.ios 过长，已忽略（退化为仅 NSLog）");
         sBGLogConfig.enabled = 0;
     }
 

@@ -1,0 +1,160 @@
+{
+  "_comment": "BSSID 映射的**语言中立测试向量**。iOS 的纯 C 核心（ios/hooks/BGGhostRules.c）与 Android 的 Java 核心（R14）必须对同一份向量得出相同结论。",
+  "_driven_by": "ios/tests/host/vector_rules.c 读 USV（\\x1f 分隔）流执行；ios/tests/host/run-vectors.sh 用 jq 把本文件转成该流。",
+  "_protocol": "字段分隔符固定为 \\x1f（不用 TAB：TAB 属于 IFS 空白类，连续时会被折叠，无法表达空字段）。NULL 用 @null@，空串就是空字段，无期望输出用 -。",
+  "_invariants": [
+    "只替换 BSSID，绝不改动 SSID（向量里没有任何 SSID 期望输出）",
+    "全局关闭 / 未命中 / 畸形入参 / NULL 一律透传，且不得凭空构造值",
+    "输出的大小写与分隔符必须与真实返回值完全一致（格式跟随）",
+    "SSID 与真实 BSSID 的匹配按 802.11 语义大小写敏感"
+  ],
+  "version": 1,
+  "normalize": [
+    { "name": "无分隔符小写 -> 解析成功", "in": "aabbccddeeff", "ok": true, "out": "AA:BB:CC:DD:EE:FF" },
+    { "name": "大写冒号 -> 解析成功", "in": "AA:BB:CC:DD:EE:FF", "ok": true, "out": "AA:BB:CC:DD:EE:FF" },
+    { "name": "前后空白 -> 解析成功", "in": " aa:bb:cc:dd:ee:ff ", "ok": true, "out": "AA:BB:CC:DD:EE:FF" },
+    { "name": "连字符 -> 解析成功", "in": "11-22-33-44-55-66", "ok": true, "out": "11:22:33:44:55:66" },
+    { "name": "长度不足 -> 拒绝", "in": "AA:BB:CC", "ok": false },
+    { "name": "长度超出 -> 拒绝", "in": "AA:BB:CC:DD:EE:FF:00", "ok": false },
+    { "name": "非十六进制 -> 拒绝", "in": "AA:BB:CC:DD:EE:GG", "ok": false },
+    { "name": "空串 -> 拒绝", "in": "", "ok": false },
+    { "name": "NULL -> 拒绝", "in": null, "ok": false }
+  ],
+  "render": [
+    { "name": "大写冒号真实值 -> 大写冒号输出", "real": "AA:BB:CC:DD:EE:FF", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "A1:B2:C3:D4:E5:F6" },
+    { "name": "小写冒号真实值 -> 小写冒号输出", "real": "aa:bb:cc:dd:ee:ff", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "a1:b2:c3:d4:e5:f6" },
+    { "name": "大写连字符真实值 -> 大写连字符输出", "real": "AA-BB-CC-DD-EE-FF", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "A1-B2-C3-D4-E5-F6" },
+    { "name": "小写连字符真实值 -> 小写连字符输出", "real": "aa-bb-cc-dd-ee-ff", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "a1-b2-c3-d4-e5-f6" },
+    { "name": "无分隔符真实值 -> 无分隔符输出", "real": "AABBCCDDEEFF", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "A1B2C3D4E5F6" },
+    { "name": "全数字真实值 -> 大写输出", "real": "11:22:33:44:55:66", "fake": "A1:B2:C3:D4:E5:F6", "ok": true, "out": "A1:B2:C3:D4:E5:F6" },
+    { "name": "畸形真实值 -> 拒绝", "real": "AA:BB:CC", "fake": "A1:B2:C3:D4:E5:F6", "ok": false },
+    { "name": "畸形伪造值 -> 拒绝", "real": "AA:BB:CC:DD:EE:FF", "fake": "not-a-bssid", "ok": false },
+    { "name": "NULL 真实值 -> 拒绝", "real": null, "fake": "A1:B2:C3:D4:E5:F6", "ok": false }
+  ],
+  "map": [
+    {
+      "name": "全局开关 与 nil 语义",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "fake_bssid": "11:22:33:44:55:66", "enabled": true }
+      ],
+      "queries": [
+        { "name": "命中并替换", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "11:22:33:44:55:66" },
+        { "name": "nil 真实值 -> 不得凭空构造", "ssid": "Office_WiFi", "real_bssid": null, "hit": false },
+        { "name": "空串真实值 -> 透传", "ssid": "Office_WiFi", "real_bssid": "", "hit": false },
+        { "name": "畸形真实值 -> 透传", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC", "hit": false },
+        { "name": "SSID 不匹配 -> 透传", "ssid": "Other_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false },
+        { "name": "SSID 大小写不同 -> 透传（802.11 语义为大小写敏感）", "ssid": "office_wifi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false },
+        { "name": "SSID 为 NULL 且规则限定 SSID -> 透传", "ssid": null, "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false }
+      ]
+    },
+    {
+      "name": "全局关闭 -> 即使规则命中也不替换",
+      "set": { "enabled": false, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "fake_bssid": "11:22:33:44:55:66", "enabled": true }
+      ],
+      "queries": [
+        { "name": "全局关闭 -> 即使规则命中也不替换", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false }
+      ]
+    },
+    {
+      "name": "格式一致性：输出跟随入参格式",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "fake_bssid": "A1:B2:C3:D4:E5:F6", "enabled": true }
+      ],
+      "queries": [
+        { "name": "大写冒号入参 -> 大写冒号输出", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "A1:B2:C3:D4:E5:F6" },
+        { "name": "小写冒号入参 -> 小写冒号输出", "ssid": "Office_WiFi", "real_bssid": "aa:bb:cc:dd:ee:ff", "hit": true, "out": "a1:b2:c3:d4:e5:f6" },
+        { "name": "连字符入参 -> 连字符输出", "ssid": "Office_WiFi", "real_bssid": "AA-BB-CC-DD-EE-FF", "hit": true, "out": "A1-B2-C3-D4-E5-F6" },
+        { "name": "无分隔符入参 -> 无分隔符输出", "ssid": "Office_WiFi", "real_bssid": "AABBCCDDEEFF", "hit": true, "out": "A1B2C3D4E5F6" },
+        { "name": "真实值用连字符且小写 -> 小写连字符输出", "ssid": "Office_WiFi", "real_bssid": "aa-bb-cc-dd-ee-ff", "hit": true, "out": "a1-b2-c3-d4-e5-f6" }
+      ]
+    },
+    {
+      "name": "规则只填 SSID（多 AP 漫游同 SSID 场景）",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Roam_SSID", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true }
+      ],
+      "queries": [
+        { "name": "规则只填 SSID -> 任意真实 BSSID 命中", "ssid": "Roam_SSID", "real_bssid": "DE:AD:BE:EF:00:01", "hit": true, "out": "11:22:33:44:55:66" },
+        { "name": "规则只填 SSID -> 其它 SSID 透传", "ssid": "Other_SSID", "real_bssid": "DE:AD:BE:EF:00:01", "hit": false }
+      ]
+    },
+    {
+      "name": "规则只填真实 BSSID",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "", "real_bssid": "AA:BB:CC:DD:EE:FF", "fake_bssid": "22:33:44:55:66:77", "enabled": true }
+      ],
+      "queries": [
+        { "name": "规则只填真实 BSSID -> 命中", "ssid": "Whatever", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "22:33:44:55:66:77" },
+        { "name": "规则只填真实 BSSID -> SSID 为 NULL 也命中", "ssid": null, "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "22:33:44:55:66:77" },
+        { "name": "规则只填真实 BSSID -> 其它 BSSID 透传", "ssid": "Whatever", "real_bssid": "AA:BB:CC:DD:EE:00", "hit": false }
+      ]
+    },
+    {
+      "name": "禁用规则必须被跳过",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": false }
+      ],
+      "queries": [
+        { "name": "规则 enabled=0 -> 跳过", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false }
+      ]
+    },
+    {
+      "name": "多条命中取第一条",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true },
+        { "ssid": "Office_WiFi", "real_bssid": "", "fake_bssid": "99:99:99:99:99:99", "enabled": true }
+      ],
+      "queries": [
+        { "name": "多条规则命中 -> 取第一条", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "11:22:33:44:55:66" }
+      ]
+    },
+    {
+      "name": "T7 透传：default 未启用",
+      "set": { "enabled": true, "default": { "enabled": false, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true }
+      ],
+      "queries": [
+        { "name": "未配置网络 -> 透传（T7）", "ssid": "Cafe_Free", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false }
+      ]
+    },
+    {
+      "name": "default 显式启用",
+      "set": { "enabled": true, "default": { "enabled": true, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [
+        { "ssid": "Office_WiFi", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true }
+      ],
+      "queries": [
+        { "name": "default 启用 -> 未配置网络使用默认值", "ssid": "Cafe_Free", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "A1:B2:C3:D4:E5:F6" },
+        { "name": "default 启用 -> 输出格式仍跟随真实值（小写连字符）", "ssid": "Cafe_Free", "real_bssid": "aa-bb-cc-dd-ee-ff", "hit": true, "out": "a1-b2-c3-d4-e5-f6" },
+        { "name": "default 启用 -> 已配置网络仍走规则", "ssid": "Office_WiFi", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": true, "out": "11:22:33:44:55:66" }
+      ]
+    },
+    {
+      "name": "全局关闭 -> default 也不生效",
+      "set": { "enabled": false, "default": { "enabled": true, "fake_bssid": "A1:B2:C3:D4:E5:F6" } },
+      "rules": [],
+      "queries": [
+        { "name": "全局关闭 -> default 也不生效", "ssid": "Cafe_Free", "real_bssid": "AA:BB:CC:DD:EE:FF", "hit": false }
+      ]
+    }
+  ],
+  "add": [
+    { "op": "add", "name": "伪造值非法 -> 添加失败", "ssid": "S", "real_bssid": "", "fake_bssid": "zz:zz:zz:zz:zz:zz", "enabled": true, "ok": false },
+    { "op": "add", "name": "真实值非法 -> 添加失败", "ssid": "S", "real_bssid": "AA:BB:CC", "fake_bssid": "11:22:33:44:55:66", "enabled": true, "ok": false },
+    { "op": "add", "name": "SSID 超长(33 字节) -> 添加失败", "ssid": "0123456789012345678901234567890123", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true, "ok": false },
+    { "op": "add", "name": "SSID 恰好 32 字节 -> 添加成功", "ssid": "01234567890123456789012345678901", "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true, "ok": true },
+    { "op": "add", "name": "伪造值为 NULL -> 添加失败", "ssid": "S", "real_bssid": "", "fake_bssid": null, "enabled": true, "ok": false },
+    { "op": "add", "name": "SSID 为 NULL -> 添加成功（语义等同于不限制 SSID）", "ssid": null, "real_bssid": "", "fake_bssid": "11:22:33:44:55:66", "enabled": true, "ok": true },
+    { "op": "fill", "name": "表容量内全部添加成功（BG_RULE_MAX_COUNT 条）", "count": 16, "fake_bssid": "11:22:33:44:55:66", "expect_added": 16, "count_after": 16 },
+    { "op": "fill_overflow", "name": "超出容量 -> 拒绝且不覆盖，count 未越界", "count": 16, "fake_bssid": "11:22:33:44:55:66", "ok": false, "count_after": 16 }
+  ]
+}

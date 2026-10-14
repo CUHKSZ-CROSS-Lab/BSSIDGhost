@@ -4,6 +4,7 @@
 #
 # L0 配置契约检查：shared/config/*.json 与 ios/hooks/*.c 的键名/类型/容量契约
 # L1 单元测试（纯 C，不依赖真机与 ObjC）：
+#   - shared/vectors/*.json ：**语言中立行为向量**，两端（C 核心 / Java 核心）必须同结论
 #   - BGGhostRules.c : BSSID 映射（T5 格式一致 / T7 无规则透传 / nil 语义）
 #   - BGGhostAuth.c  : 授权闸与作用域（T8 作用域 / T9 授权闸）
 #
@@ -53,6 +54,12 @@ bash "${ROOT}/ios/tests/host/gate-sim.sh" --self-test
 echo
 echo "==> [L1] BSSID 映射模拟器自检（真实映射代码 + 真实 JSON 取值）"
 bash "${ROOT}/ios/tests/host/map-sim.sh" --self-test
+
+# 语言中立向量：这是**跨端行为规范**的可执行形式，Android 的 Java 核心（R14）必须跑同一份。
+# 与下面两个 C 单测的关系：向量管「两端必须一致的行为」，C 单测还额外管 C API 机制细节。
+echo
+echo "==> [L1] 语言中立向量驱动（shared/vectors/，两端共用）"
+bash "${ROOT}/ios/tests/host/run-vectors.sh"
 
 mkdir -p "${OUT_DIR}"
 

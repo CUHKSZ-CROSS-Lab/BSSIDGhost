@@ -168,14 +168,34 @@ else
 fi
 
 # --- 6. 日志设置 -------------------------------------------------------------
+# R13 起路径**按平台取值**：log.paths.{ios,android}。iOS 必须有绝对路径；
+# android 允许为 null（主通道是 logcat，文件路径留待 R14 定），但一旦给出就必须是绝对路径。
 LOG_ENABLED="$(jq -r '.log.enabled // false' "${MAP_JSON}")"
-LOG_PATH="$(jq -r '.log.path // ""' "${MAP_JSON}")"
+LOG_PATH_IOS="$(jq -r '.log.paths.ios // ""' "${MAP_JSON}")"
+LOG_PATH_ANDROID="$(jq -r '.log.paths.android // ""' "${MAP_JSON}")"
+LOG_PATH_LEGACY="$(jq -r '.log.path // ""' "${MAP_JSON}")"
 LOG_MAX="$(jq -r '.log.max_bytes // 0' "${MAP_JSON}")"
+
+if [[ -n "${LOG_PATH_LEGACY}" ]]; then
+    # 同名旧键若还在，解析方会静默走错分支 —— 必须显式拦住，而不是容忍两份并存。
+    bad "log.path 是 R12 之前的旧键（单平台），已改为 log.paths.{ios,android}：请删除 log.path"
+fi
+
 if [[ "${LOG_ENABLED}" == "true" ]]; then
-    if [[ -n "${LOG_PATH}" ]]; then
-        ok "log.enabled=true，path=${LOG_PATH}"
+    if [[ -z "${LOG_PATH_IOS}" ]]; then
+        bad "log.enabled=true 但 log.paths.ios 为空 -> iOS 会退化为仅 NSLog"
+    elif [[ "${LOG_PATH_IOS}" != /* ]]; then
+        bad "log.paths.ios 不是绝对路径：'${LOG_PATH_IOS}'"
     else
-        bad "log.enabled=true 但 log.path 为空 -> 会退化为仅 NSLog"
+        ok "log.paths.ios=${LOG_PATH_IOS}"
+    fi
+
+    if [[ -z "${LOG_PATH_ANDROID}" || "${LOG_PATH_ANDROID}" == "null" ]]; then
+        note "log.paths.android 未定（Android 主通道为 logcat，文件路径留待 R14）"
+    elif [[ "${LOG_PATH_ANDROID}" != /* ]]; then
+        bad "log.paths.android 不是绝对路径：'${LOG_PATH_ANDROID}'"
+    else
+        ok "log.paths.android=${LOG_PATH_ANDROID}"
     fi
 fi
 if ! [[ "${LOG_MAX}" =~ ^[0-9]+$ ]]; then

@@ -23,8 +23,12 @@
   ],
   "log": {
     "_comment": "enabled=false 时只输出 NSLog；max_bytes 超过后把当前文件轮转为 <path>.1（保留一份备份）",
+    "_platform_note": "路径按平台取值（R13）：iOS 走 paths.ios；Android 主通道是 logcat（tag=BSSIDGhost），文件日志为可选，paths.android 留待 R14 与 Java 日志实现一起定 —— 不用猜的路径占位。",
     "enabled": true,
-    "path": "/var/mobile/Library/Logs/BSSIDGhost/ghost.log",
+    "paths": {
+      "ios": "/var/mobile/Library/Logs/BSSIDGhost/ghost.log",
+      "android": null
+    },
     "max_bytes": 1048576
   }
 }

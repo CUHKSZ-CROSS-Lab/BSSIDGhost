@@ -188,7 +188,7 @@ else
     echo "    ✅ 必需工具齐全"
 fi
 if [[ "${SUITE_STATUS}" == "通过" ]]; then
-    echo "    ✅ 主机检查通过（配置契约 / 脚本自检 / ObjC 语法 / 两个模拟器 / 纯 C 单测）"
+    echo "    ✅ 主机检查通过（配置契约 / 脚本自检 / ObjC 语法 / 两个模拟器 / 语言中立向量 / 纯 C 单测）"
 elif [[ "${SUITE_STATUS}" == "跳过" ]]; then
     echo "    ⚠️  主机检查未执行"
 else

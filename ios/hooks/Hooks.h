@@ -16,7 +16,7 @@
 void BGGhostInstallHooks(void);
 
 /// 统一日志入口。输出到 NSLog；若 bssid_map.json 的 log.enabled 为真，
-/// 同时追加到 log.path（超过 log.max_bytes 时轮转为 `<path>.1`）。
+/// 同时追加到 log.paths.<平台>（超过 log.max_bytes 时轮转为 `<path>.1`）。
 void BGGhostLog(NSString *format, ...) NS_FORMAT_FUNCTION(1, 2);
 
 /// 是否已启用（只有授权闸与作用域判定都通过后才为 YES）。

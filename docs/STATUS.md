@@ -19,7 +19,7 @@
 | R10 | 设备选型与越狱：用户 iPhone 12 / A14 / iOS 26 落在可越狱缺口里 | ⛔ 关闭（结论已留档，路线作废） |
 | R11 | iOS 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⛔ 冻结（随 iOS 版一起冻结） |
 | **R12** | **转向 Android：ADR 留档 + 冻结 iOS + 单仓双端重构 + 修两个真实缺陷** | ✅ 完成 |
-| R13 | 语言中立测试向量（`shared/vectors/`，两端跑同一份） | ⏳ 待开始（不需要设备） |
+| **R13** | **语言中立测试向量落地（`shared/vectors/`）+ 日志路径按平台取值** | ✅ 完成 |
 | R14 | Android Java 核心（映射 + 授权闸）+ 本机构建链脚本 + 主机单测 | ⏳ 待开始（不需要设备） |
 | R15 | Frida 只读抓栈：确认飞书实际走哪条 Wi-Fi 信息通道（等价 iOS 的 BG-011） | ⏳ 阻塞于测试机 |
 | R16 | LSPosed 模块实现 + 部署 + 端到端 T1–T10 | ⏳ 阻塞于 R15 |
@@ -59,11 +59,12 @@
 | BG-050 | 转向 Android：ADR 留档 + 冻结 iOS（tag `ios-r11-host-verified`）+ 单仓双端目录重构 | **done** | — | [`docs/adr/0001-pivot-to-android.md`](adr/0001-pivot-to-android.md)、[`ios/README.md`](../ios/README.md)、[`android/README.md`](../android/README.md)、[`shared/README.md`](../shared/README.md) |
 | BG-051 | 修复两个真实缺陷：`bootstrap.sh` 过期关键路径提示、任务板 BG-040 重号；并加装文档链接检查器守住重构 | **done** | BG-050 | [`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/check-links.sh`](../scripts/check-links.sh)（203 条内部链接全通过） |
 | BG-052 | Android 测试机采购规格与验机清单（机型/版本/root/命令，逐条附来源与性质） | **done** | — | [`docs/android-device-spec.md`](android-device-spec.md) |
-| BG-053 | 语言中立测试向量：把 92 条断言抽成 `shared/vectors/`，两端同跑 | todo | BG-050 | 占位：[`shared/vectors/README.md`](../shared/vectors/README.md) |
+| BG-053 | 语言中立测试向量：把 C 断言抽成 `shared/vectors/` 数据，两端同跑（**110 条向量断言**） | **done** | BG-050 | [`shared/vectors/`](../shared/vectors/README.md)、[`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh)、[`vector_rules.c`](../ios/tests/host/vector_rules.c)、[`vector_auth.c`](../ios/tests/host/vector_auth.c) |
 | BG-054 | Android Java 核心（映射 + 授权闸）移植 + 主机单测（JVM 直接跑） | todo | BG-053 | — |
 | BG-055 | Android 本机构建链脚本（`javac` + `d8/R8` + `aapt2` + `apksig`）+ 骨架 APK | todo | BG-050 | R12 已手工实测整链可行（见轮次记录） |
 | BG-056 | Android 版 Frida 只读抓栈（确认飞书实际走的 Wi-Fi 信息通道） | blocked | BG-052（设备到位） | — |
 | BG-057 | LSPosed 模块实现（Vector + legacy API 82）+ 部署脚本 + 端到端 T1–T10 | todo | BG-054、BG-055、BG-056 | — |
+| BG-058 | 日志路径按平台取值（`log.path` → `log.paths.{ios,android}`）+ 契约检查与反向验证 | **done** | BG-053 | [`shared/config/bssid_map.json`](../shared/config/bssid_map.json)、[`ios/tests/host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) |
 
 ## 已确认环境事实（不要重复探测）
 
@@ -77,6 +78,7 @@
 | **注入路线** | 先 Frida 只读抓栈，再落 **LSPosed 模块** | 用户 2026-10-14 选定 |
 | **Hook 框架** | **Vector v2.2** + legacy XposedBridge **API 82**（官方 LSPosed 停在 v1.9.2，只到 Android 14） | [ADR-0001](adr/0001-pivot-to-android.md) §5 |
 | **Android 编译链** | **本机命令行**：`javac` + `d8/R8` + `aapt2` + `apksig`（镜像取件，无需 Android Studio） | R12 端到端实测 |
+| **行为规格真源** | [`shared/vectors/`](../shared/vectors/README.md)：110 条语言中立断言，**两端必须同结论**（改行为先改向量） | R13 落地 |
 | 授权状态 | 未登记（`fill_me`），全部闸门关闭（**两端共用同一套闸门**） | [`shared/config/targets.json`](../shared/config/targets.json) |
 | —— 以下为 iOS 冻结存档（不再推进）—— | | |
 | 测试机越狱 | Dopamine / rootless | 用户（R1） |
@@ -121,34 +123,97 @@
    npm `frida@17.23.3` 走 npmmirror 可行但 R1 决定不装。**R15 之前需要一次性安装许可。**
 4. ~~iOS 设备 / 越狱 / 编译链~~ → **随 iOS 版冻结，不再是阻塞项**（[ADR-0001](adr/0001-pivot-to-android.md)）。
 
-## 下一轮（R13）：语言中立测试向量（不需要设备）
+## 下一轮（R14）：Android Java 核心 + 本机构建链（不需要设备）
 
-**为什么先做这个**：本次双端化最大的风险是「iOS 的 C 核心与 Android 的 Java 核心行为漂移」。
-现有 92 条断言（`BGGhostRules` 56 + `BGGhostAuth` 36）就是规格的可执行表述，
-但它们**硬编码在 C 单测里**，Java 端没法直接复用。
+R13 已把「两端必须一致的行为」变成机器可校验的向量，R14 要产出**消费它的第二个实现**。
 
-R13 的 DoD：
-
-1. 把 92 条断言**抽取**成数据（`shared/vectors/bssid-map.json`、`shared/vectors/auth-gate.json`），
-   **覆盖不许减少**；
-2. iOS 的 C 单测改为**从向量文件驱动**，仍全绿（141 项断言总数不减）；
-3. 向量格式写成两端都能读的（JSON，字段名与 `shared/config/*.json` 的命名风格一致）；
-4. 顺带处理已知跨端差异：`bssid_map.json` 的 `log.path` 目前是 iOS 路径，改为**按平台取值**。
-
-## 之后（R14）：Android Java 核心 + 本机构建链（不需要设备）
-
-1. `BGGhostRules` / `BGGhostAuth` 的 **Java 移植**（授权闸语义与顺序**一字不改**）；
-2. **主机单测**：JVM 直接跑 `shared/vectors/`，与 C 端结论逐条比对；
+1. **Java 核心移植**：`BGGhostRules`（归一化 / 格式跟随 / 规则匹配 / default / nil 语义）与
+   `BGGhostAuth`（授权闸与作用域判定）——**判定顺序与短路规则一字不改**；
+2. **JVM 主机单测**：直接读 `shared/vectors/*.json`，与 C 端**逐条比对结论**；
+   向量断言数不得少于 110；
 3. **构建脚本** `android/scripts/build.sh`：`javac` → `d8` → `aapt2` → `apksig`，
-   走镜像取件（R12 已手工验证整链可行），产出可安装的骨架 APK；
-4. 授权闸同样接入构建脚本入口：`fill_me` 未填齐即拒绝构建。
+   构件走可达镜像（R12 已手工验证整链可行），产出可安装的骨架 APK；
+4. **授权闸接入构建入口**：`fill_me` 未填齐即拒绝构建（与 iOS 侧同语义）；
+5. 日志：按 `log.paths` 的平台语义实现（Android 主通道 logcat，文件路径用运行期私有目录）。
 
-> **R15 起需要设备**：Frida 抓栈确认飞书实际走哪条 Wi-Fi 信息通道，
-> 拿到结论后才写 Hook（避免像 iOS 那样先占位再返工）。
+> **R15 起需要设备**：Frida 抓栈确认飞书实际走哪条 Wi-Fi 信息通道，拿到结论后才写 Hook
+> （避免像 iOS 那样先占位再返工）。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R13（2026-10-14）语言中立测试向量落地 + 日志路径按平台取值
+
+**本轮要解决的问题**：R12 把 iOS 与 Android 摆成两个实现，最大的风险是**两端行为漂移**。
+R12 之前那 92 条断言把「输入 → 期望输出」**写死在 C 代码里**，Java 端无法复用；
+两端各自的单测都绿，也证明不了一致。
+
+**一、交付：110 条语言中立向量 + 两个薄驱动**
+
+| 文件 | 内容 |
+|---|---|
+| [`shared/vectors/bssid-map.json`](../shared/vectors/bssid-map.json) | 映射：归一化 9、格式跟随 9、规则匹配/优先级/default/nil 语义 31、容量与校验 12 |
+| [`shared/vectors/auth-gate.json`](../shared/vectors/auth-gate.json) | 授权闸：静态契约 13、字段写入校验 6、BundleID 容量 5、**判定用例 25** |
+| [`ios/tests/host/vector_rules.c`](../ios/tests/host/vector_rules.c) / [`vector_auth.c`](../ios/tests/host/vector_auth.c) | 读 USV 流、调用**真实核心**、逐条比对；透传时还额外断言「不得写入输出缓冲」 |
+| [`ios/tests/host/run-vectors.sh`](../ios/tests/host/run-vectors.sh) | jq 把 JSON 转成 USV 流；编译并运行两个驱动；已并入 `ios/tests/host/run.sh` |
+
+**为什么用 USV（`0x1f`）而不是 TAB**：TAB 属于 IFS 空白类，连续时会被折叠，
+无法区分「空串」与「NULL」——而向量里「空串 = 不限制」是有意义的取值。
+记号：`@null@` / `@empty@` / `-`（无期望）/ `*`（该字段不断言）。
+
+**二、主机侧断言：141 → 251（覆盖只增不减）**
+
+```
+$ bash ios/tests/host/run.sh
+  配置契约检查          通过（含 log.paths 的新规则）
+  脚本自检             17 通过
+  ObjC 语法检查        18 通过
+  授权闸模拟器          6 通过
+  映射模拟器            8 通过
+  语言中立向量         61 + 49 = 110 通过   ← R13 新增
+  test_bgg_rules       56 通过
+  test_bgg_auth        36 通过
+  断言合计 = 251
+```
+
+C 单测**保留**，但定位变清楚了：向量管「两端必须一致的行为」，
+C 单测还额外管「C API 机制」（透传不写缓冲、`cfg == NULL` 不崩溃、静态表完整性）。
+分工写进了 [`shared/vectors/README.md`](../shared/vectors/README.md)。
+
+**三、证明向量驱动不是空转（故障注入）**
+
+| 注入的故障 | 结果 |
+|---|---|
+| 把一条映射期望值的大小写改错 | ✅ 退出码 1：`got=a1:b2:c3:d4:e5:f6 want=A1:B2:C3:D4:E5:F6` |
+| 把一条「拒绝」判定反转成「放行」 | ✅ 退出码 1：`result=2(授权字段仍为占位符 fill_me) want=0(通过)` |
+
+**四、日志路径按平台取值（BG-058）**
+
+`log.path`（只有 iOS 值）→ `log.paths.{ios,android}`：`ios/hooks/BGGhostConfig.m` 读 `paths.ios`；
+`paths.android` **允许为 `null`**——Android 主通道是 logcat，文件落盘位置取决于运行期私有目录，
+**不写未经真机验证的路径占位**。
+
+契约检查新增三条规则并逐条做了反向验证：
+
+| 注入的故障 | 结果 |
+|---|---|
+| 把旧键 `log.path` 加回来 | ✅ FAIL「旧键，请删除」 |
+| `paths.ios` 改成相对路径 | ✅ FAIL「不是绝对路径」 |
+| 删掉 `paths.ios` | ✅ FAIL「iOS 会退化为仅 NSLog」 |
+
+**五、一个值得记的过程细节（自己抓到自己）**
+
+向量初稿我写了「SSID 为 NULL → 添加失败」。写驱动前读实现，发现
+`BGGhostRuleSetAdd` 对 `ssid == NULL` 是**接受**的（语义 = 不限制 SSID），
+属于合法输入。**期望值必须是语义上正确的，不能是「跑出来的值」**——
+这条已写进 `shared/vectors/README.md` 的纪律。
+
+**六、诚实标注**
+
+- 向量驱动只跑在**主机**上；Android 侧尚未消费（R14 的任务），
+  所以「两端一致」目前是**机制就位**，不是**已证明**；
+- `paths.android` 留空是刻意的，不代表 Android 日志方案已定。
 
 ### R12（2026-10-14）转向 Android：ADR + 冻结 iOS + 单仓双端重构
 

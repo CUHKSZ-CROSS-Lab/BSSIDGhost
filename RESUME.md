@@ -19,7 +19,7 @@
 git clone https://github.com/CUHKSZ-CROSS-Lab/BSSIDGhost.git
 cd BSSIDGhost
 
-# ② 一条命令：环境自检 + 主机检查（141 项断言）+ 文档链接检查，都不需要设备
+# ② 一条命令：环境自检 + 主机检查（251 项断言）+ 文档链接检查，都不需要设备
 bash scripts/bootstrap.sh
 
 # ③ 按输出的「接下来做什么」执行；本文第 4 节是当前的关键路径
@@ -29,7 +29,7 @@ bash scripts/bootstrap.sh
 
 1. **必需项检查**（`git` / `clang` / `jq`），缺失时按当前平台给出安装命令；
 2. **可选项检查**（真机与打包工具、iOS SDK、`THEOS`、`lipo`）；
-3. **跑 [`ios/tests/host/run.sh`](ios/tests/host/run.sh)** —— 6 个主机检查目标、141 项断言；
+3. **跑 [`ios/tests/host/run.sh`](ios/tests/host/run.sh)** —— 251 项断言（含 110 条语言中立向量）；
 4. **跑 [`scripts/check-links.sh`](scripts/check-links.sh)** —— 全仓库 Markdown 内部链接（210 条）。
 
 健康的仓库应当输出：
@@ -88,12 +88,12 @@ bash scripts/bootstrap.sh
    `ios/scripts/build.sh` 两者都支持，会自动挑。
 4. **对 Android 主线没有帮助**：Android 端不需要 Mac，也不需要 Xcode。
 
-## 4. 下一步（R13 → R14，都不需要设备）
+## 4. 下一步（R14，不需要设备）
 
 | 轮次 | 做什么 | 需要设备 |
 |---|---|---|
-| **R13** | 把 92 条断言抽成 [`shared/vectors/`](shared/vectors/) 的语言中立测试向量，让两端跑同一份 | ❌ |
-| **R14** | Java 核心（映射 + 授权闸）移植 + JVM 主机单测 + `android/scripts/build.sh`（本机出 APK） | ❌ |
+| ~~R13~~ | ~~语言中立测试向量~~ → ✅ **本轮已完成**：110 条向量断言，总断言 251 | — |
+| **R14** | Java 核心（映射 + 授权闸）移植 + JVM 主机单测（消费同一份向量）+ `android/scripts/build.sh` | ❌ |
 | **R15** | Frida 只读抓栈：确认飞书实际走哪条 Wi-Fi 信息通道 | ✅ |
 | **R16** | LSPosed 模块实现 + 部署 + 端到端 T1–T10 | ✅ |
 
@@ -120,7 +120,7 @@ bash scripts/bootstrap.sh
 
 **已经能确定的**（有证据、可在本机复现）：
 
-- 主机侧 6 个检查目标、**141 项断言全绿**——配置契约、脚本自检（含授权闸反向用例）、
+- 主机侧 **251 项断言全绿**——配置契约、脚本自检（含授权闸反向用例）、
   ObjC 语法与头文件自包含、授权闸与映射两个模拟器、92 条纯 C 单测；
 - **Android 构建链端到端可用**：本机用 `javac` + `aapt2` + `d8` + `apksig`
   真实打出并**签名验证通过**了一个 APK（含 `WifiInfo.getBSSID` 的 hook 骨架编译通过）；
@@ -180,7 +180,8 @@ bash scripts/check-links.sh                # 只跑文档链接检查（改过�
 bash scripts/check-links.sh -v             # 附带统计检查了多少文件/链接
 
 # —— iOS 侧（冻结，但必须保持全绿：它是规格层的参照实现）——
-bash ios/tests/host/run.sh                 # 6 个目标、141 项断言
+bash ios/tests/host/run.sh                 # 251 项断言（含语言中立向量）
+bash ios/tests/host/run-vectors.sh         # 只跑 shared/vectors/ 的向量驱动（110 条）
 bash ios/tests/host/gate-sim.sh            # 当前配置下，Hook 会对目标进程启用还是拒绝？
 bash ios/tests/host/map-sim.sh             # 当前映射表下，App 会读到什么 BSSID？
 bash ios/tests/host/gate-sim.sh --self-test   # 闸门模拟器自检（6 项）

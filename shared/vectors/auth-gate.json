@@ -1,0 +1,433 @@
+{
+  "_comment": "授权闸与作用域判定的**语言中立测试向量**（对应测试矩阵 T8/T9）。iOS 的纯 C 核心（ios/hooks/BGGhostAuth.c）与 Android 的 Java 核心（R14）必须对同一份向量得出相同结论。",
+  "_driven_by": "ios/tests/host/vector_auth.c 读 USV（\\x1f 分隔）流执行；ios/tests/host/run-vectors.sh 用 jq 把本文件转成该流。",
+  "_protocol": "字段分隔符固定为 \\x1f。NULL 用 @null@，空串用 @empty@（本文件里空串只出现在「键名为空 / mode 为空」这类用例），无期望字段用 -。",
+  "_safety_invariant": "这是本项目的安全闸：任何一条不满足都必须**拒绝启用**，并给出可定位的字段名。宁可误拒，不可误放。",
+  "_case_shape": "每条用例自带完整配置（不依赖模板），便于 Android 端逐条独立消费。",
+  "version": 1,
+  "contract": {
+    "_comment": "键名 / 字段名 / 判定结果码的稳定契约。两端实现都必须满足。",
+    "auth_keys": ["target_app_owner", "authorized_by", "authorization_ref", "purpose", "test_device", "test_ap"],
+    "field_names": ["authorization.target_app_owner", "authorization.authorized_by", "authorization.authorization_ref", "authorization.purpose", "authorization.test_device", "authorization.test_ap"],
+    "result_codes": ["ok", "auth_missing", "auth_placeholder", "constraints", "scope_mode", "scope_empty", "process_scope"]
+  },
+  "field_set": [
+    { "name": "未知键名 -> 拒绝（不静默忽略拼错的字段）", "key": "target_ap_owner", "value": "x", "ok": false },
+    { "name": "键名为空 -> 拒绝", "key": "@empty@", "value": "x", "ok": false },
+    { "name": "值为 NULL -> 拒绝", "key": "purpose", "value": null, "ok": false },
+    { "name": "值长度 = 上限-1 -> 接受", "key": "target_app_owner", "value": { "repeat": "a", "times": 127 }, "ok": true },
+    { "name": "值长度 = 上限 -> 拒绝（不截断）", "key": "target_app_owner", "value": { "repeat": "b", "times": 128 }, "ok": false },
+    { "name": "合法键名 + 正常值 -> 接受", "key": "authorization_ref", "value": "SEC-1024", "ok": true }
+  ],
+  "bundle_add": [
+    { "op": "add", "name": "BundleID 超长 -> 拒绝", "bundle_id": { "repeat": "c", "times": 128 }, "ok": false },
+    { "op": "add", "name": "BundleID 为空 -> 拒绝", "bundle_id": "@empty@", "ok": false },
+    { "op": "add", "name": "BundleID 为 NULL -> 拒绝", "bundle_id": null, "ok": false },
+    { "op": "fill", "name": "容量内全部添加成功（BG_AUTH_MAX_BUNDLES 个）", "count": 8, "expect_added": 8, "count_after": 8 },
+    { "op": "fill_overflow", "name": "超出容量 -> 拒绝，count 未越界", "count": 8, "ok": false, "count_after": 8 }
+  ],
+  "cases": [
+    {
+      "name": "授权齐备 + 进程在作用域 -> 通过",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "ok", "field": null }
+    },
+    {
+      "name": "多 BundleID -> 命中第二个",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest", "com.example.other"] }
+      },
+      "process": "com.example.other",
+      "expect": { "result": "ok", "field": null }
+    },
+    {
+      "name": "授权全空 -> 缺值，指向第一个字段",
+      "config": {
+        "authorization": {},
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_missing", "field": "authorization.target_app_owner" }
+    },
+    {
+      "name": "6 个字段均为 fill_me -> 拒绝（当前仓库的真实状态）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "fill_me",
+          "authorized_by": "fill_me",
+          "authorization_ref": "fill_me",
+          "purpose": "fill_me",
+          "test_device": "fill_me",
+          "test_ap": "fill_me"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_placeholder", "field": "authorization.target_app_owner" }
+    },
+    {
+      "name": "仅 test_ap 未填 -> 精确指向 test_ap",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "fill_me"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_placeholder", "field": "authorization.test_ap" }
+    },
+    {
+      "name": "占位符变体 '  FILL_ME  ' -> 仍拒绝（忽略空白与大小写）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "  FILL_ME  ",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_placeholder", "field": "authorization.authorized_by" }
+    },
+    {
+      "name": "纯空白值 -> 视为缺值（不能用空格绕过授权闸）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "   ",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_missing", "field": "authorization.purpose" }
+    },
+    {
+      "name": "授权未填 + 进程不在作用域 -> 先报授权（短路顺序）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "fill_me",
+          "authorized_by": "fill_me",
+          "authorization_ref": "fill_me",
+          "purpose": "fill_me",
+          "test_device": "fill_me",
+          "test_ap": "fill_me"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.other.app",
+      "expect": { "result": "auth_placeholder", "field": "authorization.target_app_owner" }
+    },
+    {
+      "name": "只尝试写入未知键名 -> 仍未登记授权（不静默写入）",
+      "config": {
+        "authorization": {},
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "extra_writes": [{ "key": "target_ap_owner", "value": "x" }],
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_missing", "field": "authorization.target_app_owner" }
+    },
+    {
+      "name": "constraints.only_test_devices=0 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": false, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "constraints", "field": "constraints" }
+    },
+    {
+      "name": "constraints.only_test_network=0 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": false, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "constraints", "field": "constraints" }
+    },
+    {
+      "name": "constraints.no_production_targets=0 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": false },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "constraints", "field": "constraints" }
+    },
+    {
+      "name": "BundleID 不匹配 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.other.app",
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "BundleID 大小写不同 -> 拒绝（精确匹配）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "COM.EXAMPLE.BGTEST",
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "BundleID 为空（非 App 进程）-> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "",
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "BundleID 为 NULL -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": null,
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "scope.mode 为空 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "scope_mode", "field": "scope.mode" }
+    },
+    {
+      "name": "scope.mode 大小写不符 -> 拒绝（要求显式合法值）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "AllowList", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "scope_mode", "field": "scope.mode" }
+    },
+    {
+      "name": "scope.mode 非枚举值 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME 移动端团队（自有 App）",
+          "authorized_by": "安全负责人 张三 / 工单 SEC-1024",
+          "authorization_ref": "SEC-1024",
+          "purpose": "验证客户端对 AP 身份的判定逻辑",
+          "test_device": "iPhone12,1 / 测试机 SN-0001",
+          "test_ap": "实验室 AP-BG-01"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "whitelist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "scope_mode", "field": "scope.mode" }
+    },
+    {
+      "name": "allowlist 但无 BundleID -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME",
+          "authorized_by": "李四",
+          "authorization_ref": "SEC-1",
+          "purpose": "测试",
+          "test_device": "iPhone",
+          "test_ap": "AP-1"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": [] }
+      },
+      "process": "com.example.bgtest",
+      "expect": { "result": "scope_empty", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "all 模式 -> 任意 App 进程放行",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME",
+          "authorized_by": "李四",
+          "authorization_ref": "SEC-1",
+          "purpose": "测试",
+          "test_device": "iPhone",
+          "test_ap": "AP-1"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "all", "bundle_ids": [] }
+      },
+      "process": "com.anything",
+      "expect": { "result": "ok", "field": null }
+    },
+    {
+      "name": "all 模式 -> 非 App 进程仍拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME",
+          "authorized_by": "李四",
+          "authorization_ref": "SEC-1",
+          "purpose": "测试",
+          "test_device": "iPhone",
+          "test_ap": "AP-1"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "all", "bundle_ids": [] }
+      },
+      "process": null,
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    },
+    {
+      "name": "all 模式 + 授权未填 -> 仍拒绝（all 不豁免授权闸）",
+      "config": {
+        "authorization": {
+          "target_app_owner": "fill_me",
+          "authorized_by": "fill_me",
+          "authorization_ref": "fill_me",
+          "purpose": "fill_me",
+          "test_device": "fill_me",
+          "test_ap": "fill_me"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "all", "bundle_ids": [] }
+      },
+      "process": "com.anything",
+      "expect": { "result": "auth_placeholder", "field": "authorization.target_app_owner" }
+    },
+    {
+      "name": "配置为 NULL -> 不崩溃并拒绝（fail closed）",
+      "_field_note": "配置本身不存在，没有可指认的字段，故不对责任字段断言（* = 不关心）",
+      "config": null,
+      "process": "com.example.bgtest",
+      "expect": { "result": "auth_missing", "field": "*" }
+    },
+    {
+      "name": "授权齐备但进程为任意 bundle 且 mode=allowlist 未登记 -> 拒绝",
+      "config": {
+        "authorization": {
+          "target_app_owner": "ACME",
+          "authorized_by": "李四",
+          "authorization_ref": "SEC-1",
+          "purpose": "测试",
+          "test_device": "iPhone",
+          "test_ap": "AP-1"
+        },
+        "constraints": { "only_test_devices": true, "only_test_network": true, "no_production_targets": true },
+        "scope": { "mode": "allowlist", "bundle_ids": ["com.example.bgtest"] }
+      },
+      "process": "com.ss.android.lark",
+      "expect": { "result": "process_scope", "field": "scope.bundle_ids" }
+    }
+  ]
+}

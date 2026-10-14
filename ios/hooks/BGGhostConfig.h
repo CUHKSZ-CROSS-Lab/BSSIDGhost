@@ -22,7 +22,7 @@
 /// 日志落盘设置。
 typedef struct {
     int  enabled;        ///< log.enabled，0 = 只输出 NSLog
-    char path[512];      ///< log.path，为空则只输出 NSLog
+    char path[512];      ///< log.paths.ios（R13 起按平台取值），为空则只输出 NSLog
     long max_bytes;      ///< log.max_bytes，超过则轮转为 `<path>.1`；<= 0 用默认 1 MiB
 } BGLogConfig;
 
