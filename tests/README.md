@@ -1,5 +1,11 @@
 # 测试矩阵
 
+> **平台切分（R12 起，见 [ADR-0001](../docs/adr/0001-pivot-to-android.md)）**：
+> 本文的 T1–T10 矩阵与 [`evidence/`](evidence/) 的证据规范是**跨端**的；
+> 具体测试实现按平台放在 `ios/tests/`（已冻结）与 `android/tests/`（R14 起）。
+> 下表中的路径指向 iOS 侧实现——**它们仍然有效且必须保持全绿**，
+> 因为 iOS 的纯 C 核心是 `shared/` 规格层的参照实现。
+
 ## 验证目标
 
 确认 Hook 生效，且**只**改变了 BSSID 返回值 —— 不影响真实网络连接。
@@ -8,28 +14,28 @@
 
 | 路径 | 层级 | 说明 |
 |---|---|---|
-| [`host/check-config-contract.sh`](host/check-config-contract.sh) | **L0**（主机） | 校验 `config/*.json` 与 `hooks/*.c` 的键名/类型/容量契约，以及过滤器 plist 与 `bundle_ids` 是否一致 |
-| [`host/check-scripts.sh`](host/check-scripts.sh) | **L0**（主机） | 用 `--dry-run` 正向验证三个脚本的命令拼装；反向验证授权闸与 `<team>` 占位符会拦住执行 |
-| [`host/check-objc-syntax.sh`](host/check-objc-syntax.sh) | **L0**（主机） | 用 [`objc-stub/`](objc-stub/) 的最小 Foundation 桩，对 `hooks/*.m` 做 `clang -fsyntax-only`（含 ARC 与格式串检查）+ 头文件自包含检查 |
-| [`host/gate-sim.sh`](host/gate-sim.sh) | **L1**（主机） | 授权闸模拟器：把**真实配置**喂给**真实判定代码**（`BGGhostAuth.c`），回答「某个 BundleID 上 Hook 会启用还是拒绝」；`--self-test` 含 5 组反向用例 |
-| [`host/map-sim.sh`](host/map-sim.sh) | **L1**（主机） | BSSID 映射模拟器：把**真实映射表**喂给**真实映射代码**（`BGGhostRules.c`），回答「给定 (SSID, 真实 BSSID)，App 会读到什么」；`--self-test` 含 8 组断言 |
-| [`host/`](host/) 的单测 | **L1**（主机，不依赖真机） | `run.sh` 编译并运行 `BGGhostRules.c` 与 `BGGhostAuth.c` 的纯 C 单测 |
-| [`frida/`](frida/) | **L2**（真机只读抓栈） | `capture-wifi-api.js` + 用法（App 与 nehelper 两步 attach），落实 BG-011 |
+| [`host/check-config-contract.sh`](../ios/tests/host/check-config-contract.sh) | **L0**（主机） | 校验 `shared/config/*.json` 与 `ios/hooks/*.c` 的键名/类型/容量契约，以及过滤器 plist 与 `bundle_ids` 是否一致 |
+| [`host/check-scripts.sh`](../ios/tests/host/check-scripts.sh) | **L0**（主机） | 用 `--dry-run` 正向验证三个脚本的命令拼装；反向验证授权闸与 `<team>` 占位符会拦住执行 |
+| [`host/check-objc-syntax.sh`](../ios/tests/host/check-objc-syntax.sh) | **L0**（主机） | 用 [`objc-stub/`](../ios/tests/objc-stub/) 的最小 Foundation 桩，对 `ios/hooks/*.m` 做 `clang -fsyntax-only`（含 ARC 与格式串检查）+ 头文件自包含检查 |
+| [`host/gate-sim.sh`](../ios/tests/host/gate-sim.sh) | **L1**（主机） | 授权闸模拟器：把**真实配置**喂给**真实判定代码**（`BGGhostAuth.c`），回答「某个 BundleID 上 Hook 会启用还是拒绝」；`--self-test` 含 5 组反向用例 |
+| [`host/map-sim.sh`](../ios/tests/host/map-sim.sh) | **L1**（主机） | BSSID 映射模拟器：把**真实映射表**喂给**真实映射代码**（`BGGhostRules.c`），回答「给定 (SSID, 真实 BSSID)，App 会读到什么」；`--self-test` 含 8 组断言 |
+| [`host/`](../ios/tests/host/) 的单测 | **L1**（主机，不依赖真机） | `run.sh` 编译并运行 `BGGhostRules.c` 与 `BGGhostAuth.c` 的纯 C 单测 |
+| [`frida/`](../ios/tests/frida/) | **L2**（真机只读抓栈） | `capture-wifi-api.js` + 用法（App 与 nehelper 两步 attach），落实 BG-011 |
 | [`evidence/`](evidence/) | 证据 | 原始输出与结论摘要的命名/模板/纪律 |
 
 ```sh
 # L0 + L1：本机即可跑（推荐入口；也是换机器后的第一条命令）
 bash scripts/bootstrap.sh      # 环境自检 + 全套检查 + 下一步提示
-tests/host/run.sh              # 只跑检查，不打印环境报告
+ios/tests/host/run.sh              # 只跑检查，不打印环境报告
 
 # 单项运行
-tests/host/check-config-contract.sh
-tests/host/check-scripts.sh
-tests/host/check-objc-syntax.sh
-tests/host/gate-sim.sh                 # 对配置里的第一个 BundleID 判定
-tests/host/gate-sim.sh --bundle com.x  # 指定 BundleID
-tests/host/map-sim.sh                                  # 按配置里的规则自动生成查询
-tests/host/map-sim.sh --ssid Office_WiFi --bssid AA:BB:CC:DD:EE:FF
+ios/tests/host/check-config-contract.sh
+ios/tests/host/check-scripts.sh
+ios/tests/host/check-objc-syntax.sh
+ios/tests/host/gate-sim.sh                 # 对配置里的第一个 BundleID 判定
+ios/tests/host/gate-sim.sh --bundle com.x  # 指定 BundleID
+ios/tests/host/map-sim.sh                                  # 按配置里的规则自动生成查询
+ios/tests/host/map-sim.sh --ssid Office_WiFi --bssid AA:BB:CC:DD:EE:FF
 ```
 
 ## 用例矩阵
@@ -57,7 +63,7 @@ tests/host/map-sim.sh --ssid Office_WiFi --bssid AA:BB:CC:DD:EE:FF
 
 - **真实设备实测值**：设置 → 无线局域网 → 当前网络详情，记录真实 BSSID。
 - **Hook 后 App 读取值**：通过 Frida 或 App 界面读取。
-- **接口 MAC**：`tests/frida/capture-wifi-api.js` 的 `interface-macs` 事件给出 en0 MAC，
+- **接口 MAC**：`ios/tests/frida/capture-wifi-api.js` 的 `interface-macs` 事件给出 en0 MAC，
   用于证明它与 AP 的 BSSID 不是同一个值。
 - 三者必须符合配置映射，且 T3 的 SSID 两侧一致。
 
@@ -66,7 +72,7 @@ tests/host/map-sim.sh --ssid Office_WiFi --bssid AA:BB:CC:DD:EE:FF
 - **伪造值格式错误**（小写/换分隔符）→ App 应无法识别或直接失败，用于确认 App 是否做格式校验。
   L1 已断言「输出格式跟随入参」，真机侧需用格式异常值验证 App 的反应。
 - **只 Hook 单通道** → 若 App 同时调用多个接口，观察是否触发不一致告警（对应 tech-chain.md 第 6 节）。
-  先用 `tests/frida/capture-wifi-api.js` 确认实际通道数量，再设计该用例。
+  先用 `ios/tests/frida/capture-wifi-api.js` 确认实际通道数量，再设计该用例。
 - **nil 场景** → 在无定位权限 / 无 entitlement 的情况下，真实值为 nil 时不得凭空构造 BSSID
   （L1 已断言，真机需复验系统是否真的返回 nil）。
 

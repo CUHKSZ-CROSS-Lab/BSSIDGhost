@@ -22,7 +22,7 @@
 - iOS 版本：<ideviceinfo -k ProductVersion>
 - 越狱类型：Dopamine / rootless (/var/jb)
 - 目标 App 与版本：<bundle id> / <版本号>
-- 授权引用：<config/targets.json 的 authorization_ref>
+- 授权引用：<shared/config/targets.json 的 authorization_ref>
 - 主机 frida 版本 / 设备 frida-server 版本：<必须一致>
 - 原始输出：<同目录 jsonl 文件名>
 

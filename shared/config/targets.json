@@ -1,0 +1,27 @@
+{
+  "_comment": "目标 App 作用域与测试授权记录。fill_me 字段未填齐前不要启用 Hook。",
+  "_gate_semantics": "授权闸由 ios/hooks/BGGhostAuth.c 实现（判定逻辑可在主机上单测）。拒绝启用的条件：① authorization 任一字段为空/全空白/等于 fill_me；② constraints 三项未全部为 true；③ scope.mode 不是 allowlist/all；④ allowlist 但 bundle_ids 为空；⑤ 当前进程 BundleID 不在作用域内（非 App 进程一律跳过）。读不到或解析失败本文件时按「未授权」处理（fail closed）。",
+  "_gate_enforcement": "同一套语义在真机侧为 Hook 拒绝启用，在主机侧为 ios/scripts/build.sh 与 ios/scripts/deploy.sh 拒绝执行；助手不代填下列授权字段。",
+  "scope": {
+    "mode": "allowlist",
+    "_comment": "allowlist = 仅列出的 BundleID 生效（大小写敏感精确匹配）；all = 所有 App 进程生效（不推荐，仍需授权齐备）",
+    "bundle_ids": [
+      "com.ss.iphone.ugc.Lark"
+    ]
+  },
+  "authorization": {
+    "_comment": "使用前必须登记：证明对目标 App 有测试授权、且使用受控测试设备与网络。6 个字段缺一不可，且不得为 fill_me。",
+    "target_app_owner": "fill_me",
+    "authorized_by": "fill_me",
+    "authorization_ref": "fill_me",
+    "purpose": "fill_me",
+    "test_device": "fill_me",
+    "test_ap": "fill_me"
+  },
+  "constraints": {
+    "_comment": "三项必须全部为 true，否则授权闸拒绝启用",
+    "only_test_devices": true,
+    "only_test_network": true,
+    "no_production_targets": true
+  }
+}

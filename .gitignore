@@ -2,13 +2,15 @@
 /build/
 /packages/
 /.theos/
+/ios/packages/
+/ios/.theos/
 *.dylib
 *.deb
 *.o
 *.dSYM/
 
-# 由 scripts/build.sh 生成（随包配置，避免与 config/ 漂移）
-/layout/usr/share/bssidghost/
+# 由 ios/scripts/build.sh 生成（随包配置，避免与 shared/config/ 漂移）
+/ios/layout/usr/share/bssidghost/
 
 # 日志与大体量证据
 *.log
@@ -19,7 +21,7 @@ tests/evidence/**/*.har
 *.mobileprovision
 *.p12
 *.cer
-config/local.*.json
+shared/config/local.*.json
 
 # 编辑器与系统
 .DS_Store

@@ -7,7 +7,7 @@
 #
 # 设计目标：在一台**全新的机器**上，5 分钟内回答三个问题：
 #   1. 我缺什么工具？（必需 / 可选分开列，附本平台安装命令）
-#   2. 这个仓库现在是不是健康的？（跑 tests/host/run.sh，不需要设备）
+#   2. 这个仓库现在是不是健康的？（跑 ios/tests/host/run.sh，不需要设备）
 #   3. 我接下来该做什么？（读取顺序 + 当前阻塞项）
 #
 # Linux 与 macOS 都已适配。退出码：0 = 必需项齐全且检查通过；1 = 有缺失或检查失败。
@@ -147,7 +147,7 @@ if [[ "${SKIP_TESTS}" -eq 0 ]]; then
     set +e
     # 先把输出收进变量再取退出码：管道后的 $? 是 tail 的，会把失败误报成通过。
     set +e
-    SUITE_OUTPUT="$(bash "${ROOT}/tests/host/run.sh" 2>&1)"
+    SUITE_OUTPUT="$(bash "${ROOT}/ios/tests/host/run.sh" 2>&1)"
     code=$?
     set -e
     printf '%s\n' "${SUITE_OUTPUT}" | tail -n 20
@@ -163,6 +163,23 @@ else
 fi
 echo
 
+# --- 文档链接检查（跨平台）---------------------------------------------------
+LINK_STATUS="跳过"
+if [[ "${SKIP_TESTS}" -eq 0 ]]; then
+    echo "--- 文档链接检查（重构后最容易悄悄断掉的东西）---"
+    set +e
+    LINK_OUTPUT="$(bash "${ROOT}/scripts/check-links.sh" 2>&1)"
+    link_code=$?
+    set -e
+    printf '%s\n' "${LINK_OUTPUT}" | tail -n 12
+    if [[ "${link_code}" -eq 0 ]]; then
+        LINK_STATUS="通过"
+    else
+        LINK_STATUS="失败"
+    fi
+    echo
+fi
+
 # --- 总结与下一步 ------------------------------------------------------------
 echo "==> 总结"
 if [[ "${MISSING_REQUIRED}" -gt 0 ]]; then
@@ -177,30 +194,40 @@ elif [[ "${SUITE_STATUS}" == "跳过" ]]; then
 else
     echo "    ❌ 主机检查${SUITE_STATUS}"
 fi
+case "${LINK_STATUS}" in
+    通过) echo "    ✅ 文档链接检查通过（无断链）" ;;
+    跳过) echo "    ⚠️  文档链接检查未执行" ;;
+    *)    echo "    ❌ 文档链接检查失败" ;;
+esac
 echo
 
 cat <<'EOF'
 ==> 接下来做什么
 
+当前主线：**Android 版**（iOS 版已冻结，见 docs/adr/0001-pivot-to-android.md）
+
 读取顺序（新会话 / 新机器都按这个来）：
   1. RESUME.md              5 分钟跑通 + 当前进度与缺口
   2. HANDOFF.md             交接备忘：已定决策、风险、未决事项
   3. docs/STATUS.md         进度真源：任务板 BG-xxx + 阻塞项
-  4. docs/tech-chain.md     技术链路与 Hook 点（§2.2 是可证伪实验设计）
+  4. docs/adr/              决策留档（含「为什么从 iOS 转向 Android」）
+  5. docs/ios/tech-chain.md iOS 链路与 Hook 点（冻结参考）
 
-当前唯一的关键路径：
-  [BG-032] 编译链落点 —— 三选一，决策材料见 docs/build-chain-options.md
-    A) macOS + theos（风险最低）
-    B) 本机装 theos + iOS SDK + ldid
-    C) 越狱机上用 Procursus 工具链
-  选定前：无法产出任何编译/链接产物，ObjC 层只到语法检查。
+当前关键路径（Android 侧）：
+  设备未就位 —— 采购规格、root 方案与验机命令见 docs/android-device-spec.md
+  注入路线已定 —— 先 Frida 只读抓栈，再落 LSPosed 模块（Vector + legacy API 82）
+  编译链已实测 —— android.jar + aapt2 + d8/R8 + apksig，本机纯命令行可出签名 APK
+                   （构建脚本落在 R14；本轮 bootstrap 尚不检查 Android 工具链）
 
-真机线还缺三样（都不由助手代填/代办）：
-  1) config/targets.json 的 6 个授权字段（现为 fill_me）
-  2) 一台已越狱的测试机（Dopamine / rootless，iOS 15.0-16.6.x）
-  3) 同意安装 frida（抓栈用，见 docs/device-setup.md）
+仍需你提供（助手不代填 / 不代办）：
+  1) shared/config/targets.json 的 6 个授权字段（现为 fill_me）—— Android 版沿用同一套闸门
+  2) 一台已 root 的 Android 测试机（建议 Android 15 / API 35 + Magisk + Vector）
+
+iOS 版（**冻结**，仅作参考，不再推进）：
+  需越狱机 + Dopamine/rootless；设备选型结论见 docs/ios/handoff-device-jailbreak.md。
+  注意：BG-032 编译链落点**已定为方案 C**（设备端 Procursus），不要再当未决项讨论。
 EOF
 
-if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* ]]; then
+if [[ "${MISSING_REQUIRED}" -gt 0 || "${SUITE_STATUS}" == "失败"* || "${LINK_STATUS}" == "失败" ]]; then
     exit 1
 fi

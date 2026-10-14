@@ -167,11 +167,11 @@ $(printf '%s\n' "${COMMITS}" | sed 's/^/- /')
 ## 已知边界（不要误读为"已完成"）
 
 - **没有任何代码在真实 iOS SDK 上编译或链接过**（BG-032 编译链落点未决）；
-  \`hooks/*.m\` 只到语法检查，\`scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）
-- 真机线未解锁：\`config/targets.json\` 的授权字段仍为 \`fill_me\`，
-  授权闸会拒绝 build / deploy / Hook（这是刻意设计，见 \`hooks/BGGhostAuth.c\`）
+  \`ios/hooks/*.m\` 只到语法检查，\`ios/scripts/build.sh\` 只验证过命令拼装（\`--dry-run\`）
+- 真机线未解锁：\`shared/config/targets.json\` 的授权字段仍为 \`fill_me\`，
+  授权闸会拒绝 build / deploy / Hook（这是刻意设计，见 \`ios/hooks/BGGhostAuth.c\`）
 - 来自外部资料的结论（nehelper XPC）一律标注「待真机验证」，
-  可证伪实验设计见 \`docs/tech-chain.md\` §2.2
+  可证伪实验设计见 \`docs/ios/tech-chain.md\` §2.2
 EOF
 )"
 
