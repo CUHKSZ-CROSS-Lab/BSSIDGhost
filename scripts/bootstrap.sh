@@ -211,7 +211,8 @@ cat <<'EOF'
   2. HANDOFF.md                   交接备忘：已定决策、风险、未决事项
   3. docs/STATUS.md               进度真源：任务板 BG-xxx + 阻塞项
   4. docs/adr/0002-return-to-ios.md   为什么主线切回 iOS（含被推翻的旧结论）
-  5. docs/ios/device-spec.md      iPhone 8 采购规格 + 越狱方案 + 验机命令
+  5. docs/ios/purchase-checklist.md  **一页采购清单（可直接发给卖家）**
+  6. docs/ios/device-spec.md      iPhone 8 采购规格 + 越狱方案 + 验机命令（含来源与性质）
   6. docs/ios/tech-chain.md       iOS 链路与 Hook 点（§2.2 是可证伪实验）
 
 当前关键路径（iOS 侧）：

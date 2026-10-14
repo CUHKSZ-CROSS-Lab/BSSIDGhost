@@ -24,7 +24,8 @@ bash scripts/bootstrap.sh
 - **交接备忘（已定决策 / 风险 / 未决事项）**：[`HANDOFF.md`](./HANDOFF.md)
 - **进度真源**：[`docs/STATUS.md`](./docs/STATUS.md)
 - **决策留档**：[`docs/adr/`](./docs/adr/)（含「为什么转向 Android」**与**「为什么切回 iOS」）
-- **iPhone 8 采购规格与验机清单**：[`docs/ios/device-spec.md`](./docs/ios/device-spec.md)
+- **iPhone 8 采购一页清单（可直接发卖家）**：[`docs/ios/purchase-checklist.md`](./docs/ios/purchase-checklist.md)
+- **iPhone 8 采购完整规格与验机命令**：[`docs/ios/device-spec.md`](./docs/ios/device-spec.md)
 - **iOS 技术链路与 Hook 点**：[`docs/ios/tech-chain.md`](./docs/ios/tech-chain.md)
 
 ## 一句话定义

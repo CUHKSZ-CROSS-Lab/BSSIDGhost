@@ -94,7 +94,7 @@ R14 之后，**iOS 侧能脱离设备做的事已经做完**，下一步必须�
 
 | 步骤 | 谁做 | 内容 |
 |---|---|---|
-| 1. 采购 | 用户 | **iPhone 8**（**优先已在 ≤16.6.1**；8 Plus 3GB 内存更稳）。验机见 [`docs/ios/device-spec.md`](docs/ios/device-spec.md) §7 |
+| 1. 采购 | 用户 | **iPhone 8**（**优先已在 ≤16.6.1**；8 Plus 3GB 内存更稳）。**一页清单（可直接发卖家）**：[`docs/ios/purchase-checklist.md`](docs/ios/purchase-checklist.md) |
 | 2. 越狱 | 用户 | **Dopamine**（rootless）→ Sileo 装 ElleKit + PreferenceLoader；≤16.6.1 再装 TrollStore 免重签 |
 | 3. 确认 BundleID | 双方 | 确认飞书真实 BundleID（**BG-061**）后再打包 |
 | 4. 设备端工具链 | 用户 | `clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk` |
@@ -146,30 +146,50 @@ R14 之后，**iOS 侧能脱离设备做的事已经做完**，下一步必须�
 2. **一台 iPhone 8，且优先已在 iOS ≤16.6.1**（这决定 TrollStore 能否用）；
 3. 同意安装 `frida`（BG-011 抓栈用）。
 
-## 6. 换 AI 会话怎么最快接上
+## 6. 换 AI 会话怎么最快接上（**交接握手**）
 
-新开一个助手会话时，用这段开场（可按需删减）：
+### 6.1 当前状态一句话（R14 结束时，2026-10-14）
+
+> **主线 iOS**（iPhone 8 + Dopamine）；Android 暂停冻结但代码全保留。
+> 主机侧 **251 项断言全绿、277 条文档链接无断链**，但**没有任何真机动作**——
+> iPhone 8 尚未采购。**下一轮 R15 是设备驱动的，卡点只在你手上。**
+
+### 6.2 开场白（复制这一段即可）
 
 ```
 先读 RESUME.md、HANDOFF.md、docs/STATUS.md、docs/adr/0002-return-to-ios.md，
-再读 docs/ios/device-spec.md、docs/ios/ondevice-build-setup.md、shared/README.md。然后：
-1) 运行 bash scripts/bootstrap.sh，把结果告诉我；
-2) 主线是 iOS（iPhone 8 + Dopamine）；Android 已暂停冻结，不要再推进 Android；
-3) 按 docs/STATUS.md 的阻塞项与下一轮（R15）继续推进；
-4) 打包前先确认飞书真实 BundleID（BG-061）——写错的话插件不会注入且不报错；
-5) 遵守约定：shared/config/targets.json 的授权字段未填齐前不做真机注入、不代填授权字段；
-   外部资料的结论必须标注「待真机验证」；每次改动要有可复现的验证证据；
-   改了目录或文档后跑 bash scripts/check-links.sh。
+再读 docs/ios/device-spec.md、docs/ios/purchase-checklist.md、shared/README.md。然后：
+
+1) 运行 bash scripts/bootstrap.sh，把结果告诉我（应报 251 项断言 + 链接无断链）；
+2) 主线是 iOS：目标机型 iPhone 8（A11），越狱工具 Dopamine（rootless /var/jb），
+   iOS 版本优先 <=16.6.1（决定 TrollStore 能否用，进而决定要不要每 7 天重签）；
+3) Android 已暂停冻结，不要再推进 Android；
+4) 按 docs/STATUS.md 的阻塞项与下一轮（R15）继续推进；
+5) 打包前必须先确认真实 BundleID（BG-061）—— 写错插件不会注入，而且不报错；
+6) 遵守约定：shared/config/targets.json 的授权字段未填齐前不做真机注入、不代填授权字段；
+   外部资料必须标注「待真机验证」；每次改动要有可复现的验证证据；
+   改了文档或目录后跑 bash scripts/check-links.sh。
+
+另外，以下三件事已经核实过了，不要重新讨论：
+- iPhone 8 能越狱（palera1n 与 Dopamine 双重支持）—— 项目曾用「palera1n 排除 arm64e」
+  错误地否定它，那是个错误推论，已在 docs/ios/handoff-device-jailbreak.md §2.1 修正；
+- BG-032 编译链落点已定为方案 C（设备端 Procursus 工具链），不是未决项；
+- 单仓双端结构与 shared/vectors/ 的 110 条语言中立向量是跨端资产，与主线在哪一侧无关。
 ```
 
-助手必须遵守的三条约定（已写进 [`HANDOFF.md`](HANDOFF.md) §9）：
+### 6.3 助手必须遵守的约定
+
+三条基本约定（已写进 [`HANDOFF.md`](HANDOFF.md) §9）：
 
 1. **进度真源**是 `docs/STATUS.md`；每轮结束更新 STATUS 与 HANDOFF；任务号必须唯一。
 2. **安全闸不放宽**：`fill_me` 未填齐即拒绝 build/deploy/Hook；助手不代填授权字段。
 3. **实测与外部资料严格分开**：只有 `tests/evidence/` 里的输出才能写「实测」。
 
-> **R14 新增的第 4 条纪律**：判断某机型能否越狱，**必须回到官方「支持设备列表」核对**，
-> 不能从一句概括性描述外推——项目正是在这里错过一次（差点白白转向 Android）。
+> **R14 新增第 4 条纪律**：判断某机型能否越狱，**必须回到官方「支持设备列表」核对**，
+> 不能从一句概括性描述外推——项目正是在这里错过一次，差点白白转向 Android。
+>
+> **第 5 条（R12 起）**：目录或文档改动后跑 `bash scripts/check-links.sh`；
+> 根解析有哨兵（找不到 `shared/config/targets.json` 会立即报错），搬迁脚本后先跑测试套件。
 
 ## 7. 离线传输兜底
 

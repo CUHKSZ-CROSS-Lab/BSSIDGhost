@@ -246,7 +246,7 @@ R14 之后，**iOS 侧能脱离设备做的事已经做完**：主机侧 251 项
 
 | 步骤 | 谁做 | 内容 |
 |---|---|---|
-| 1. 采购 | 用户 | iPhone 8（**优先 ≤16.6.1**；8 Plus 是 3GB 内存更稳）。验机见 [`docs/ios/device-spec.md`](./docs/ios/device-spec.md) §7 |
+| 1. 采购 | 用户 | iPhone 8（**优先 ≤16.6.1**；8 Plus 是 3GB 内存更稳）。**一页清单可直接发卖家**：[`docs/ios/purchase-checklist.md`](./docs/ios/purchase-checklist.md)；完整依据见 [`device-spec.md`](./docs/ios/device-spec.md) |
 | 2. 越狱 | 用户 | Dopamine（rootless）→ Sileo 装 ElleKit + PreferenceLoader；≤16.6.1 再装 TrollStore 免重签 |
 | 3. 确认 BundleID | 用户 + 助手 | 设备上确认飞书真实 BundleID（**BG-061**），修正 `scope.bundle_ids` |
 | 4. 设备端工具链 | 用户 | `clang-16` / `ld64` / `ldid` / `dpkg` / `make` + `iPhoneOS16.5.sdk`（[SOP](./docs/ios/ondevice-build-setup.md)） |
