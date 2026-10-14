@@ -15,7 +15,9 @@
 | R6 | 授权闸模拟器（BG-036）+ 编译链决策说明（BG-032 的决策材料） | ✅ 完成 |
 | R7 | 映射模拟器（BG-038）+ nehelper 可证伪实验设计（BG-039） | ✅ 完成 |
 | R8 | 交接方案（BG-040：RESUME/bootstrap/publish）+ 修复换 Mac 后的 ObjC 假通过风险 | ✅ 完成 |
-| R9 | 待定：**BG-032 决策落地**（真 SDK 编译 + 链接验证）；主机侧已做完 | ⏳ 计划中 |
+| R9 | **BG-032 决策落地：选定方案 C（设备端 Procursus 工具链）** + 设备准备 SOP（BG-043） | ✅ 完成 |
+| R10 | 设备选型与越狱（**新会话专谈**）：用户 iPhone 12 / A14 / iOS 26 落在缺口里 | ⏳ 待用户执行 |
+| R11 | 真机执行：越狱装机 → 设备端编译 → 装 deb → 跑 T1–T10 | ⏳ 阻塞于 R10 |
 
 ## 任务板
 
@@ -33,12 +35,14 @@
 | BG-023 | L0 配置契约检查（JSON ↔ C 键名/容量/格式） | **done** | — | [`tests/host/check-config-contract.sh`](../tests/host/check-config-contract.sh)（含 3 组反向用例验证） |
 | BG-030 | 选定 Hook 框架并跑通最小 PoC | blocked | BG-011、设备 | — |
 | BG-031 | 补全 `build.sh` / `deploy.sh` / `verify.sh` 真实实现 | **doing** | BG-032（真编译验证） | 三条命令已实现并自检（`--dry-run`）：[`scripts/`](../scripts/)、[`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)；**待真实工具链验证** |
-| BG-032 | 决定编译链落点（macOS+theos / Linux 补 SDK / 越狱机上编） | **todo（需用户决策）** | — | 见「阻塞项 3」 |
+| BG-032 | 决定编译链落点 | **done（= C，用户 2026-10-13 选定）** | — | 决策说明见 [`docs/build-chain-options.md`](build-chain-options.md)；执行 SOP 见 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md) |
 | BG-033 | theos 打包骨架（Makefile / control / layout 过滤器） | **done** | — | [`Makefile`](../Makefile)、[`control`](../control)、[`layout/…/BSSIDGhost.plist`](../layout/Library/MobileSubstrate/DynamicLibraries/BSSIDGhost.plist) |
 | BG-034 | 脚本自检（正向 dry-run + 反向授权闸/占位符） | **done** | — | [`tests/host/check-scripts.sh`](../tests/host/check-scripts.sh)（17/17 通过） |
 | BG-035 | ObjC 层编译期检查（最小 Foundation 桩 + `-fsyntax-only`） | **done** | — | [`tests/objc-stub/`](../tests/objc-stub/)、[`tests/host/check-objc-syntax.sh`](../tests/host/check-objc-syntax.sh)（17/17，含 5 条反向用例） |
 | BG-036 | 授权闸模拟器（真实判定代码 + 真实配置的端到端判定） | **done** | — | [`tests/host/gate-sim.sh`](../tests/host/gate-sim.sh)、[`tests/host/gate_sim.c`](../tests/host/gate_sim.c)（自检 6/6） |
 | BG-037 | 编译链决策说明（BG-032 的决策材料 + 已实测前置条件） | **done** | — | [`docs/build-chain-options.md`](build-chain-options.md) |
+| BG-043 | 设备端编译/验证环境搭建 SOP（Dopamine 安装 + Procursus 工具链 + SDK 上机 + 编译验证闭环） | **done** | BG-032 | [`docs/ondevice-build-setup.md`](ondevice-build-setup.md) |
+| BG-044 | 设备选型与越狱交接（支持矩阵核实 + 降级可行性分析 + 路线对比） | **done** | — | [`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md) |
 | BG-038 | BSSID 映射模拟器（真实映射代码 + 真实配置的端到端） | **done** | — | [`tests/host/map-sim.sh`](../tests/host/map-sim.sh)、[`tests/host/map_sim.c`](../tests/host/map_sim.c)（自检 8/8） |
 | BG-039 | nehelper 可证伪实验设计（假设 / 判别表 / 证伪条件 / 两步 attach） | **done** | — | [`docs/tech-chain.md`](tech-chain.md) §2.2、[`tests/frida/README.md`](../tests/frida/README.md) |
 | BG-040 | 交接方案：环境自检 / 5 分钟恢复指南 / 推送与 PR 脚本 | **done** | — | [`RESUME.md`](../RESUME.md)、[`scripts/bootstrap.sh`](../scripts/bootstrap.sh)、[`scripts/publish.sh`](../scripts/publish.sh) |
@@ -56,7 +60,7 @@
 | 注入路径前缀 | `/var/jb`（`/var/jb/usr/lib`、`/var/jb/Library/MobileSubstrate/DynamicLibraries`） | 由 rootless 推导 |
 | 授权状态 | 未登记（`fill_me`），全部闸门关闭 | [`config/targets.json`](../config/targets.json) |
 | Hook 框架 | 未选定，待 BG-011 结论 | 待办 |
-| 编译链 | 未确定，见 BG-032 | 待办 |
+| 编译链 | **方案 C：越狱设备上用 Procursus 工具链就地编译**（用户 2026-10-13 选定） | ✅ 已定 |
 
 ### 本机（Linux）能力审计
 
@@ -74,32 +78,69 @@
 1. **授权闸** —— `config/targets.json` 的 6 个授权字段仍为 `fill_me`。按 R1 决策先按未授权处理；
    真机任务（BG-011/012/013/030/031/040）全部 blocked。**助手不代填授权字段**，只在用户提供具体值后写入。
 2. **设备就位** —— 当前无 iOS 设备连接，`idevice_id -l` 失败。
-3. **编译链落点（BG-032）** —— 三选一：macOS + theos / 本机装 theos + iOS SDK + `ldid` /
-   直接在越狱机上用 Procursus 工具链编译。**尚未决策。**
-   → **决策材料已备好**：[`docs/build-chain-options.md`](build-chain-options.md)
-   （含已实测事实：本机 `ld64.lld` 在位、theos/theos 与 theos/sdks 仓库可达、
-   `dpkg` 在官方源、`ldid` 仅 AUR、host libc 头不能替代 SDK）。
+3. ~~编译链落点（BG-032）~~ → **已解决（2026-10-13）：用户选定方案 C（设备端 Procursus 工具链）**。
+   准备步骤见 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md)；
+   决策对比留档在 [`docs/build-chain-options.md`](build-chain-options.md)。
 4. **主机 frida** —— R1 决定「都先不装」，因此 BG-011 即便设备与授权就位也还缺执行工具
    （安装路径见 [`docs/device-setup.md`](device-setup.md) 第 2 节）。
 
-## 下一轮（R8）候选
+## 下一轮（R10）：设备选型与越狱（**新开会话专谈**）
 
-主机侧已基本做完：契约、脚本、ObjC 语法、判定逻辑、映射与闸门的真实配置端到端。
-R7 又把 nehelper 那条外部结论变成了可执行、可证伪的实验。
-**剩下真正能推进项目的只有一件事**：
+⚠️ **用户提供了新事实，改变了前提**：设备是 **iPhone 12（A14）/ iOS 26**，原计划"刷机降级"。
+本轮核实后确认**它落在可越狱范围之外，且降级不可行**：
 
-1. **[BG-032] 编译链落点（必须你定）** —— 决策材料见
-   [`docs/build-chain-options.md`](build-chain-options.md)。**唯一卡住整个项目的事项。**
-2. **[BG-031] 真 SDK 编译 + 链接验证** —— 依赖 1。
-3. **命名决策**（theos 产物名）—— 见 [`naming.md`](naming.md#项目标识)。
-4. **真机线** —— 需授权字段 + 设备 + frida 安装许可三者齐备（含 §2.2 两步 attach）。
+- Dopamine 对 **A14–A17 的上限是 iOS 17.3.1**；iOS 26 只覆盖 **A12/A13**；
+- palera1n 官方文档明确 "**arm64e devices will NEVER be supported**"（iPhone 12 是 arm64e）；
+- 降级需要 blobs + **能在当前系统设 APNonce 的漏洞** + 兼容的签名 SEP，A14 + iOS 26 三者都不具备。
 
-> R8 若仍无决策，我能做的只剩极边角的事（例如把 `verify.sh` 的设备侧检查再细化、
-> 给 `map-sim` 加 `--explain` 之类的可用性打磨）。**这些不再改变项目的成熟度。**
+完整依据、路线对比（换 A12/A13 机 / 换低版本 A14 机 / 买便宜 A11 机走 palera1n）与待确认清单：
+[`docs/handoff-device-jailbreak.md`](handoff-device-jailbreak.md)。
+
+## 之后（R11）：真机执行（由用户驱动）
+
+设备定下来之后的步骤在 [`docs/ondevice-build-setup.md`](ondevice-build-setup.md)：
+
+1. **越狱装机**（用户）：确认机型与 iOS 版本 → Dopamine（rootless）→ Sileo 里装 ElleKit、Preloader。
+2. **装工具链**（设备上）：`clang-16`、`ld64`、`ldid`、`dpkg`、`make`（详见 SOP §3）。
+3. **SDK 上机**：sparse checkout `iPhoneOS16.5.sdk`（≈201 MB）。
+4. **编译**：`bash scripts/build.sh --toolchain theos`（推荐）或直接 clang。
+   ⚠️ `build.sh` 会先过**授权闸**，`config/targets.json` 仍是 `fill_me` 时会拒绝构建。
+5. **装包并验证**：`dpkg -i packages/*.deb` → 冷启动目标 App → 看
+   `/var/mobile/Library/Logs/BSSIDGhost/ghost.log` → 跑 T1–T10。
+6. **（可选）抓栈验证 nehelper 假设**：按 [`tech-chain.md`](tech-chain.md) §2.2 的**两步 attach**。
+
+**我可以在你装机时并行做的事**（等你的真机输出）：
+- 命名决策（theos 产物名 `BSSIDGhost.dylib` vs `libbssidghost.dylib`，见 [`naming.md`](naming.md#项目标识)）；
+- `verify.sh` 设备侧检查细化（等真实日志格式确定后再做更稳）；
+- 把首次设备端编译的报错回写 SOP 的「常见坑」。
+
+> 需要你提供的信息（我无法自行探测）：**机型 + 当前 iOS 版本**（决定越狱路线与可选区间）、
+> 以及**是否已填 `config/targets.json` 授权字段**。
 
 ## 轮次记录
 
 > 最新轮次在最前。
+
+### R9（2026-10-13）BG-032 决策落地：选定方案 C + 设备准备 SOP
+
+**用户决策**：`BG-032 = C` —— 在越狱设备上用 **Procursus 工具链**就地编译并验证。
+
+**交付**：[`docs/ondevice-build-setup.md`](ondevice-build-setup.md) ——
+从"准备一台 iPhone"到"跑通 T1–T10"的完整 SOP。本轮的**核实工作**（这部分才是难点）：
+
+| 核实项 | 结论 | 来源 |
+|---|---|---|
+| Dopamine 支持矩阵 | iOS 15.0–17.3.1（A14–A17/M1–M2）；15.0–18.7.1 与 26.0–26.0.1（A8–A13）；**rootless**，自带 Sileo/Zebra | [官方站点](https://ellekit.space/dopamine/)、[cfw.guide](https://ios.cfw.guide/installing-dopamine-trollstore/) |
+| 推荐 iOS 区间 | **15.0–16.6.1**（TrollStore 路线最简单 + SDK 只到 16.5 + 与 tech-chain 假设一致） | 三条理由见 SOP §1 |
+| 设备端编译器 | **`clang-16`**（16.0.0~5.9.2~RELEASE-1），不是 `llvm`（那是元包→clang-14） | 当前 iOS 通道包索引（1364 包） |
+| 设备端链接器 | **`ld64` 609-3**（装 `clang-16` 会自动带上）—— **iOS 通道上没有 `cctools` 这个包名** | 同上（修正了我初稿的错误） |
+| 签名/打包 | `ldid` 2.1.5-procursus7（0.2 MB）、`dpkg` 1.22.6（6.1 MB）、`make` 4.4.1 | 同上 |
+| 体积预算 | SDK `iPhoneOS16.5.sdk` ≈ **201 MB / 8867 文件**；工具链依赖 ~600 MB；**别装 `swift-5.9.2`（1.19 GB）** | GitHub tree 实测 + 包索引 |
+| SDK 来源 | `theos/sdks` 最高到 **16.5**（`iPhoneOS15.6`≈60 MB、`16.5`≈201 MB） | 仓库 tree 实测（默认分支是 `master`） |
+
+**诚实标注**：SOP 里所有"未实测"项都带 ⏳ 标记并汇总到 §8；
+其中一条明确写了「我无法从 Release 判断 Procursus 的 `dists/{1800,1900,2000,3000}`
+哪个对应你的 iOS 版本，以设备上 Sileo 已配置的源为准」。
 
 ### R8（2026-10-13）交接方案 + 修复换 Mac 后的假通过风险
 

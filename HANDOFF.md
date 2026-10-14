@@ -13,6 +13,9 @@ bash scripts/bootstrap.sh
 完整恢复指南见 [`RESUME.md`](./RESUME.md)（含**换到 macOS 后的专门说明**）。
 同步到远端：`bash scripts/publish.sh --dry-run` 看计划，去掉 `--dry-run` 执行。
 
+**下一轮要谈的是设备选型与越狱**（用户手上 iPhone 12 / A14 / iOS 26 落在可越狱范围之外）：
+见 [`docs/handoff-device-jailbreak.md`](./docs/handoff-device-jailbreak.md) —— 新会话请先读它。
+
 ## 1. 项目定义（已确认）
 
 **BSSIDGhost**（中文：幻影 BSSID）
@@ -101,7 +104,7 @@ bash scripts/bootstrap.sh
   [`verify.sh`](./scripts/verify.sh)（只读，退出码 0/1/2）。
 - **脚本自检**：[`tests/host/check-scripts.sh`](./tests/host/check-scripts.sh) 17/17
   （10 条正向 dry-run + 7 条反向：授权闸、`<team>`、参数校验）。
-- **仍未做**：**没有用真实 iOS SDK 编译或链接过**（BG-032 未决）。
+- **仍未做**：**没有用真实 iOS SDK 编译或链接过**（BG-032 已于 R9 定为方案 C，尚未在设备上实跑）。
 
 **R5 已完成（2026-10-13，ObjC 层首次编译检查）**：
 
@@ -154,9 +157,10 @@ bash scripts/bootstrap.sh
 - **设备未就位** —— `idevice_id -l` 返回 `Unable to retrieve device list!`。
 - **主机缺少 frida（R2 新增阻塞）** —— R1 决定「都先不装」，所以即使授权与设备就位，
   BG-011 仍缺执行工具。安装路径见 [`docs/device-setup.md`](./docs/device-setup.md) 第 2 节。
-- **编译链落点未定（BG-032）** —— 本机无 theos / iPhoneOS SDK / `ldid` / `dpkg-deb`，
-  `clang 22` 有 arm64 目标但无 SDK，无法交叉编译。三选一：macOS + theos /
-  本机装 theos + iOS SDK + ldid / 直接在越狱机上用 Procursus 工具链编。
+- ~~编译链落点未定（BG-032）~~ → **已定（2026-10-13）：方案 C —— 越狱设备上用 Procursus 工具链就地编译**。
+  设备准备与执行步骤见 [`docs/ondevice-build-setup.md`](./docs/ondevice-build-setup.md)；
+  决策对比留档见 [`docs/build-chain-options.md`](./docs/build-chain-options.md)。
+  仍需用户执行：越狱装机 → 装 `clang-16`/`ld64`/`ldid`/`dpkg`/`make` → SDK 上机 → 编译验证。
 - **目标 App 实际走哪个 Wi-Fi 接口未验证** —— 需真机 Frida 抓调用栈（BG-011）。
 - **Hook 框架未定** —— fishhook / theos `%hook` / Frida / ElleKit 待选（BG-030，依赖 BG-011）。
 
